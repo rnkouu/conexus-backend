@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # OJS (Open Journal System) Service
+  ojs:
+    image: pkpofficial/ojs:latest
+    container_name: ojs-app
+    ports:
+      - "8080:80"
+    environment:
+      - SERVERNAME=localhost:8080
+      - DATACITE_API_URL=https://mds.datacite.org
+      - DATACITE_API_AUTH_URL=https://api.datacite.org
+      - OJS_DB_DRIVER=pgsql
+      - OJS_DB_HOST=db
+      - OJS_DB_USERNAME=ojs_user
+      - OJS_DB_PASSWORD=ojs_password_change_me
+      - OJS_DB_NAME=ojs_db
+    volumes:
+      - ./ojs-files:/var/www/html
+    depends_on:
+      - db
+    networks:
+      - conexus-network
+    restart: unless-stopped
+
+  # PostgreSQL Database (recommended for OJS)
+  db:
+    image: postgres:15-alpine
+    container_name: ojs-postgres
+    environment:
+      - POSTGRES_DB=ojs_db
+      - POSTGRES_USER=ojs_user
+      - POSTGRES_PASSWORD=ojs_password_change_me
+    volumes:
+      - ./ojs-database:/var/lib/postgresql/data
+    networks:
+      - conexus-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ojs_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Nginx reverse proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: conexus-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - ojs
+    networks:
+      - conexus-network
+    restart: unless-stopped
+
+volumes:
+  # Removed - using bind mounts instead for folder storage
+  # ojs-data:
+  #   driver: local
+  # db-data:
+  #   driver: local
+
+networks:
+  conexus-network:
+    driver: bridge

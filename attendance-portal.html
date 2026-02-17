@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Conexus — Attendance Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter','ui-sans-serif','system-ui','sans-serif'],
+            display: ['Poppins','Inter','ui-sans-serif','system-ui']
+          },
+          colors: {
+            brand:'#0b1021',
+            accent1:'#7c3aed',
+            accent2:'#06b6d4',
+            accent3:'#ec4899',
+            soft:'#f1f5f9'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html, body { height: 100%; overflow-x: hidden; }
+
+    /* Subtle Conexus background */
+    body {
+      background:
+        radial-gradient(900px 500px at 10% 10%, rgba(124,58,237,0.18), transparent 60%),
+        radial-gradient(900px 500px at 90% 90%, rgba(6,182,212,0.18), transparent 60%),
+        linear-gradient(180deg, rgba(11,16,33,1), rgba(2,6,23,1));
+    }
+
+    /* Card hover style (matches main site feel) */
+    .hover-card { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+    .hover-card:hover { transform: translateY(-1px); }
+
+    /* Gradient button */
+    .grad-btn {
+      background: linear-gradient(90deg, rgba(124,58,237,1), rgba(6,182,212,1), rgba(236,72,153,1));
+    }
+
+    /* Decorative orbs */
+    .portal-orb {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(32px);
+      opacity: 0.85;
+      mix-blend-mode: screen;
+    }
+    .portal-orb.orb-1 {
+      width: 420px; height: 420px;
+      background: radial-gradient(circle at 30% 20%, rgba(124,58,237,0.85), transparent 60%);
+      top: -80px; left: -120px;
+    }
+    .portal-orb.orb-2 {
+      width: 380px; height: 380px;
+      background: radial-gradient(circle at 70% 80%, rgba(56,189,248,0.9), transparent 60%);
+      bottom: -120px; right: -100px;
+    }
+
+    /* Success check */
+    .check-wrapper {
+      width: 72px; height: 72px;
+      border-radius: 999px;
+      border: 2px solid rgba(34,197,94,0.7);
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 30% 20%, rgba(34,197,94,0.3), transparent 55%);
+      box-shadow:
+        0 0 0 1px rgba(15,23,42,0.9),
+        0 18px 60px rgba(15,23,42,0.9),
+        0 0 40px rgba(34,197,94,0.4);
+    }
+    .check-icon { font-size: 32px; color: #bbf7d0; }
+  </style>
+</head>
+
+<body class="text-white font-sans">
+  <div class="min-h-screen flex items-center justify-center px-4 py-10">
+    <div id="portal-root" class="w-full max-w-4xl"></div>
+  </div>
+
+  <!-- React + Babel (IMPORTANT: needed for JSX in AttendancePortalStandalone.js) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Attendance portal React app (JSX) -->
+  <script type="text/babel" data-presets="env,react" src="js/AttendancePortal.js"></script>
+
+  
+
+</body>
+</html>

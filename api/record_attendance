@@ -1,0 +1,48 @@
+<?php
+header('Content-Type: application/json');
+
+// Database connection using your provided credentials
+$conn = new mysqli("localhost", "root", "09214573252", "conexus");
+
+if ($conn->connect_error) {
+    die(json_encode(["success" => false, "message" => "Database Connection Failed"]));
+}
+
+$data = json_decode(file_get_contents('php://input'), true);
+$nfc_id = $data['nfc_id'] ?? '';
+
+// Query to find the user name via the registrations table
+$sql = "SELECT u.full_name, r.id as registration_id 
+        FROM users u 
+        JOIN registrations r ON u.id = r.user_id 
+        WHERE r.nfc_card_id = ? AND r.status = 'confirmed'";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $nfc_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($row = $result->fetch_assoc()) {
+    $name = $row['full_name'];
+    $reg_id = $row['registration_id'];
+
+    // Insert the scan into attendance_logs
+    $log_query = "INSERT INTO attendance_logs (registration_id, scanned_at) VALUES (?, NOW())";
+    $log_stmt = $conn->prepare($log_query);
+    $log_stmt->bind_param("i", $reg_id);
+    $log_stmt->execute();
+
+    // Send the name back to AttendancePortal.js
+    echo json_encode([
+        "success" => true, 
+        "participant_name" => $name
+    ]);
+} else {
+    echo json_encode([
+        "success" => false, 
+        "message" => "No confirmed user found for ID: " . $nfc_id
+    ]);
+}
+
+$conn->close();
+?>
