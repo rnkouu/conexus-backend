@@ -451,10 +451,10 @@
     const [loading, setLoading] = useState(true);
 
     const fetchSubmissions = () => {
-        fetch(`${API_BASE}/submissions`, { headers: getAuthHeaders() }) // SECURED
-            .then(r => r.json())
+        fetch(`${API_BASE}/submissions`, { headers: getAuthHeaders() })
+            .then(r => r.ok ? r.json() : []) // <-- CRASH PROOF APPLIED
             .then(data => {
-                setSubmissions(data);
+                setSubmissions(Array.isArray(data) ? data : []); // <-- CRASH PROOF APPLIED
                 setLoading(false);
             })
             .catch(err => {
@@ -1077,40 +1077,39 @@
     // NEW: State for Revoke Modal
     const [revokeTarget, setRevokeTarget] = useState(null);
 
+    // --- CRASH PROOF LOAD DATA APPLIED HERE ---
     const loadData = () => {
       Promise.all([
-        fetch(`${API_BASE}/events`).then(r => r.json()).catch(() => []),
-        fetch(`${API_BASE}/registrations`, { headers: getAuthHeaders() }).then(r => r.json()).catch(() => []), // SECURED
-        fetch(`${API_BASE}/portals`, { headers: getAuthHeaders() }).then(r => r.json()).catch(() => []), // SECURED
-        fetch(`${API_BASE}/dorms`, { headers: getAuthHeaders() }).then(r => r.json()).catch(() => []), // SECURED
-        fetch(`${API_BASE}/rooms`, { headers: getAuthHeaders() }).then(r => r.json()).catch(() => []), // SECURED
-        fetch(`${API_BASE}/attendance_logs`, { headers: getAuthHeaders() }).then(r => r.json()).catch(() => []) // SECURED
+        fetch(`${API_BASE}/events`).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_BASE}/registrations`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []), 
+        fetch(`${API_BASE}/portals`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []), 
+        fetch(`${API_BASE}/dorms`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []), 
+        fetch(`${API_BASE}/rooms`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []), 
+        fetch(`${API_BASE}/attendance_logs`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) 
       ]).then(([ev, reg, por, dor, roo, lgs]) => {
-        if (Array.isArray(ev)) setEvents(ev.map(normalizeEvent));
-        if (Array.isArray(reg)) setRegistrations(reg.map(normalizeRegistration));
-        if (Array.isArray(por)) setPortals(por.map(normalizePortal));
-        if (Array.isArray(dor)) setDorms(dor.map(normalizeDorm));
-        if (Array.isArray(roo)) setRooms(roo.map(normalizeRoom));
-        if (Array.isArray(lgs)) setLogs(lgs);
+        setEvents(Array.isArray(ev) ? ev.map(normalizeEvent) : []);
+        setRegistrations(Array.isArray(reg) ? reg.map(normalizeRegistration) : []);
+        setPortals(Array.isArray(por) ? por.map(normalizePortal) : []);
+        setDorms(Array.isArray(dor) ? dor.map(normalizeDorm) : []);
+        setRooms(Array.isArray(roo) ? roo.map(normalizeRoom) : []);
+        setLogs(Array.isArray(lgs) ? lgs : []); // Crash Proof!
       });
     };
 
     useEffect(() => { loadData(); }, []);
 
+    // --- CRASH PROOF FETCH LOGS APPLIED HERE ---
     useEffect(() => {
         let interval;
         if (section === "attendance") {
-            // 1. Immediate fetch so you don't wait 3 seconds for the first load
             const fetchLogs = () => {
-                fetch(`${API_BASE}/attendance_logs`, { headers: getAuthHeaders() }) // SECURED
-                    .then(r => r.json())
-                    .then(data => setLogs(data))
+                fetch(`${API_BASE}/attendance_logs`, { headers: getAuthHeaders() }) 
+                    .then(r => r.ok ? r.json() : []) // Crash Proof!
+                    .then(data => setLogs(Array.isArray(data) ? data : [])) // Crash Proof!
                     .catch(console.error);
             };
 
             fetchLogs();
-
-            // 2. Poll every 3 seconds
             interval = setInterval(fetchLogs, 3000);
         }
         return () => {
@@ -1127,7 +1126,6 @@
       e.preventDefault();
       setCreateEventSaving(true);
       try {
-        // DETECT EDIT VS CREATE
         const isEdit = !!editEventId;
         const url = isEdit ? `${API_BASE}/events/${editEventId}` : `${API_BASE}/create_event`;
         const method = isEdit ? "PUT" : "POST";
@@ -1145,26 +1143,19 @@
       setCreateEventSaving(false);
     };
     
-    // --- OPTIMISTIC DELETE EVENT ---
     const handleDeleteEvent = async (id) => { 
         if (confirm("Delete event?")) { 
-            // 1. Remove from UI immediately
             setEvents(prev => prev.filter(e => e.id !== id));
-            
-            // 2. Send request
             try {
                 await fetch(`${API_BASE}/delete_event/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); // SECURED
             } catch (e) {
-                // 3. Revert if failed
                 loadData(); 
             }
         } 
     };
 
-    // UPDATED: Now supports admin_note
     const handleUpdateStatus = async (id, status, roomId, note = null) => {
       setRegistrations(p => p.map(r => r.id === id ? { ...r, status, roomId, adminNote: note } : r));
-      
       const payload = { status, room_id: roomId };
       if (note) payload.admin_note = note;
 
@@ -1176,7 +1167,6 @@
       loadData();
     };
 
-    // NEW: Handle Revoke Confirmation
     const handleRevokeConfirm = async (note) => {
         if (revokeTarget) {
             await handleUpdateStatus(revokeTarget.id, "Rejected", null, note);
@@ -1184,7 +1174,6 @@
         }
     };
 
-    // --- OPTIMISTIC DELETE REGISTRATION ---
     const handleDeleteRegistration = async (id) => { 
         if (confirm("Delete?")) { 
             setRegistrations(prev => prev.filter(r => r.id !== id));
@@ -1197,7 +1186,6 @@
     };
 
     const handleNfcSubmit = async (scannedId) => {
-      // 1. Optimistic Update
       setRegistrations(prev => prev.map(r => 
         r.id === nfcTargetReg.id ? { ...r, nfc_card_id: scannedId } : r
       ));
@@ -1226,7 +1214,6 @@
         loadData(); 
     };
     
-    // --- OPTIMISTIC DELETE DORM ---
     const handleDeleteDorm = async (id) => { 
         if (confirm("Delete location?")) { 
             setDorms(prev => prev.filter(d => d.id !== id));
@@ -1241,7 +1228,6 @@
         loadData(); 
     };
     
-    // --- OPTIMISTIC DELETE ROOM ---
     const handleDeleteRoom = async (id) => { 
         if (confirm("Delete room?")) { 
             setRooms(prev => prev.filter(r => r.id !== id));
@@ -1252,10 +1238,8 @@
     };
 
     const handleCreatePortal = async (form) => { 
-        // OPTIMISTIC CREATE
         const newPortal = { id: makeUUID(), ...form, createdAt: new Date().toISOString() };
         setPortals(prev => [newPortal, ...prev]);
-        
         try {
             await fetch(`${API_BASE}/portals`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(newPortal) }); // SECURED
         } catch (e) {
@@ -1264,7 +1248,6 @@
         return true; 
     };
     
-    // --- OPTIMISTIC DELETE PORTAL ---
     const handleDeletePortal = async (id) => { 
         if (confirm("Delete?")) { 
             setPortals(prev => prev.filter(p => p.id !== id));
@@ -1310,7 +1293,7 @@
                     rooms={rooms} 
                     dorms={dorms} 
                     onUpdateStatus={handleUpdateStatus} 
-                    onRevoke={(r) => setRevokeTarget(r)} // Pass the revoke handler
+                    onRevoke={(r) => setRevokeTarget(r)}
                     onAssign={(r) => { setAssignTargetReg(r); setAssignModalOpen(true); }} 
                     onNfc={(r) => { setNfcTargetReg(r); setNfcModalOpen(true); }} 
                     onPreview={setPreviewTarget} 
