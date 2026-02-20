@@ -10,6 +10,28 @@
   const createPortal = ReactDOM.createPortal;
 
   // ==========================================
+  // NFC ENCODER UTILITY (PASTE HERE)
+  // ==========================================
+  const NfcEncoder = {
+    isSupported: () => 'NDEFReader' in window,
+    writeUserCard: async (userSlug) => {
+      if (!NfcEncoder.isSupported()) {
+        throw new Error("Web NFC is not supported on this browser/device. Use Chrome on Android or a PC with a reader.");
+      }
+      const ndef = new NDEFReader();
+      // Start the scan to get browser permission
+      await ndef.scan();
+      // Create the direct link to the Business Card profile
+      const profileUrl = `https://cconexus.vercel.app/?nfc=${userSlug}`;
+      // Physically write the URL to the chip
+      await ndef.write({
+        records: [{ recordType: "url", data: profileUrl }]
+      });
+      return { success: true };
+    }
+  };
+
+  // ==========================================
   // CONFIGURATION
   // ==========================================
   const API_BASE = "https://conexus-backend-production.up.railway.app/api";
@@ -333,11 +355,66 @@
 
   function NfcModal({ isOpen, targetReg, onClose, onSubmit }) {
     if (!isOpen) return null;
-    const [scannedId, setScannedId] = useState("");
-    const inputRef = useRef(null);
-    useEffect(() => { if (isOpen) setTimeout(() => inputRef.current?.focus(), 100); }, [isOpen]);
-    const handleSubmit = (e) => { e.preventDefault(); onSubmit(scannedId); setScannedId(""); };
-    return createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"><div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center"><div className="mb-4 text-4xl">📡</div><h3 className="text-xl font-bold mb-2">Scan Card Now</h3><p className="text-sm text-gray-600 mb-6">Assigning to: <strong className="text-brand">{targetReg?.fullName}</strong></p><form onSubmit={handleSubmit}><input ref={inputRef} value={scannedId} onChange={(e) => setScannedId(e.target.value)} className="w-full text-center text-xl font-mono border-2 border-blue-100 rounded-xl py-3 mb-4 focus:border-brand outline-none" placeholder="Tap card..." autoFocus /><div className="flex gap-2 justify-center"><button type="button" onClick={onClose} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg font-bold">Cancel</button><button type="submit" className="px-6 py-2 bg-brand text-white rounded-lg font-bold shadow-lg">Save ID</button></div></form></div></div>, document.body);
+    const [status, setStatus] = useState("ready"); // ready, writing, success, error
+    const [errorMsg, setErrorMsg] = useState("");
+
+    const handleProgram = async () => {
+      setStatus("writing");
+      try {
+        // We use the email prefix (before @) as the unique ID for the Business Card
+        const userSlug = targetReg.userEmail.split('@')[0];
+        
+        // Handshake with the physical hardware
+        await NfcEncoder.writeUserCard(userSlug);
+        
+        setStatus("success");
+        // Update the database to say this user is now linked to a card
+        onSubmit(userSlug); 
+        setTimeout(onClose, 2000);
+      } catch (err) {
+        setStatus("error");
+        setErrorMsg(err.message || "Failed to program card.");
+      }
+    };
+
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center animate-fade-in-up">
+          <div className="mb-4 text-5xl">
+            {status === "ready" && "📡"}
+            {status === "writing" && "⏳"}
+            {status === "success" && "✅"}
+            {status === "error" && "❌"}
+          </div>
+          
+          <h3 className="text-xl font-black text-brand mb-2">
+            {status === "ready" && "Program NFC Card"}
+            {status === "writing" && "Approach Card..."}
+            {status === "success" && "Success!"}
+            {status === "error" && "Error"}
+          </h3>
+
+          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+            Assigning to: <strong className="text-brand">{targetReg?.fullName}</strong><br/>
+            {status === "ready" && "Tap the 'Start Encoding' button and approach a blank NFC card to the reader."}
+            {status === "writing" && "Hold the card steady against the reader now..."}
+            {status === "error" && errorMsg}
+          </p>
+
+          <div className="flex gap-3 justify-center">
+            <button onClick={onClose} className="px-6 py-3 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition">Cancel</button>
+            {status === "ready" && (
+              <button onClick={handleProgram} className="px-8 py-3 bg-brand text-white rounded-xl font-black shadow-lg u-sweep relative overflow-hidden">
+                Start Encoding
+              </button>
+            )}
+            {status === "error" && (
+              <button onClick={() => setStatus("ready")} className="px-8 py-3 bg-amber-500 text-white rounded-xl font-black">Retry</button>
+            )}
+          </div>
+        </div>
+      </div>, document.body
+    );
   }
 
   function CreateEventModal({ isOpen, isSaving, editId, formData, onChange, onClose, onSave }) {
