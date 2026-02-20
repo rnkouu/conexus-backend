@@ -167,7 +167,7 @@
             <div className="p-8 space-y-6">
                {/* Event Summary */}
                <div className="flex items-start justify-between gap-4">
-                 <div>
+                  <div>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Event</p>
                     <h4 className="text-lg font-bold text-brand leading-tight">{reg.eventTitle}</h4>
                     {event && (
@@ -176,13 +176,13 @@
                             <p className="flex items-center gap-2">📍 {event.location} ({event.mode})</p>
                         </div>
                     )}
-                 </div>
-                 <div className="text-right shrink-0">
+                  </div>
+                  <div className="text-right shrink-0">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
                     <span className={classNames("badge-academic", reg.status === "Approved" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
                         {reg.status || "Pending"}
                     </span>
-                 </div>
+                  </div>
                </div>
 
                {/* Event Description */}
@@ -259,15 +259,6 @@
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [formData, setFormData] = useState({ fullName: "", email: "", university: "", contact: "", notes: "" });
     
-    // --- Animated Dropdown Menu State ---
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const menuItems = [
-        { id: "upcoming", label: "Browse Events", icon: "🔍" },
-        { id: "my", label: "My Registrations", icon: "🎟️" },
-        { id: "submit", label: "Submit Paper", icon: "📄" },
-        { id: "business_card", label: "Business Card", icon: "🪪" }
-    ];
-
     // --- Registration States ---
     const [participantsCount, setParticipantsCount] = useState(1);
     const [companions, setCompanions] = useState([]); 
@@ -368,15 +359,16 @@
           const payload = new FormData();
           payload.append('user_email', formData.email);
           payload.append('event_id', selectedEvent.id);
-          payload.append('valid_id', selectedFile); 
+          if (selectedFile) payload.append('valid_id', selectedFile); 
           payload.append('companions', JSON.stringify(companions)); 
 
+          // 1. GET THE TOKEN
           const token = localStorage.getItem('conexus_token'); 
 
           const response = await fetch('https://conexus-backend-production.up.railway.app/api/register', {
               method: 'POST',
               headers: {
-                  'Authorization': `Bearer ${token}` 
+                  'Authorization': `Bearer ${token}` // 2. ATTACH THE TOKEN
               },
               body: payload, 
           });
@@ -440,114 +432,63 @@
 
     return (
       <section className="relative px-4 py-10 max-w-7xl mx-auto animate-fade-in-up">
-        
-        {/* NEW UNIFIED HEADER WITH ANIMATED MENU (Replaces the Hero Banner and Tabs) */}
-        <div className="relative mb-10 z-40">
-          
-          {/* Top Header Bar */}
-          <div className="flex items-center justify-between bg-white rounded-[2rem] border border-gray-100 p-5 md:px-8 md:py-6 shadow-sm relative z-50">
-            <div>
-              <p className="text-[10px] md:text-xs text-gray-400 mb-1 font-black uppercase tracking-[0.2em]">Participant Portal</p>
-              <p className="font-display text-xl md:text-2xl font-black text-brand tracking-tight flex items-center gap-3">
-                 <span className="w-3 h-3 rounded-full bg-[var(--u-blue)] shadow-[0_0_0_4px_rgba(30,90,168,0.15)]"></span>
-                 Welcome, {user?.name || "Scholar"}
+        {/* Institutional Hero Banner */}
+        <div className="relative overflow-hidden u-hero rounded-[2.5rem] p-8 md:p-12 mb-10 shadow-2xl">
+          <div className="absolute inset-0 u-hero-grid" />
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            <div className="max-w-xl">
+              <span className="px-4 py-2 rounded-sm u-hero-badge text-[11px] font-black uppercase mb-4 inline-block shadow-sm">
+                Participant Dashboard
+              </span>
+              <h1 className="text-4xl md:text-5xl font-black text-white mb-3">Welcome, {user?.name || "Scholar"}</h1>
+              <p className="text-white/70 text-sm md:text-base leading-relaxed">
+                Your central hub for academic events, symposia, and research submissions. Track your registrations and certificates in real-time.
               </p>
             </div>
-            
-            <div className="flex items-center gap-4">
-                {/* Desktop Stat Badges (Hidden on tiny phones) */}
-                <div className="hidden md:flex gap-3">
-                    <div className="bg-gray-50 rounded-xl px-4 py-2 text-center border border-gray-100">
-                        <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Events</p>
-                        <p className="text-lg font-black text-brand leading-none">{upcomingEvents.length}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl px-4 py-2 text-center border border-gray-100">
-                        <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Regs</p>
-                        <p className="text-lg font-black text-brand leading-none">{myEvents.length}</p>
-                    </div>
-                </div>
-
-                {/* Hamburger Button */}
-                <button 
-                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                  className={classNames(
-                      "p-3 md:p-4 rounded-2xl border-2 transition-all duration-300",
-                      isMobileMenuOpen ? "bg-brand border-brand text-white shadow-lg" : "bg-gray-50 border-gray-100 text-gray-600 hover:border-gray-200 hover:bg-gray-100"
-                  )}
-                  title="Toggle Navigation"
-                >
-                  <svg 
-                    className="w-6 h-6 md:w-7 md:h-7 transition-transform duration-300" 
-                    style={{ transform: isMobileMenuOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} 
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                  >
-                    {isMobileMenuOpen ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" />
-                    )}
-                  </svg>
-                </button>
+            <div className="grid grid-cols-2 sm:flex gap-4">
+               {[ { l: 'Events', v: upcomingEvents.length }, { l: 'Registrations', v: myEvents.length } ].map((stat, i) => (
+                  <div key={i} className="u-soft rounded-2xl px-6 py-4 min-w-[120px] text-center backdrop-blur-md">
+                    <p className="text-[10px] font-black text-blue-600 uppercase mb-1 tracking-widest">{stat.l}</p>
+                    <p className="text-2xl font-black text-brand">{stat.v}</p>
+                  </div>
+               ))}
             </div>
           </div>
+        </div>
 
-          {/* The Animated Dropdown Menu */}
-          <div 
-            className={classNames(
-              "absolute top-full right-0 mt-4 w-full md:w-80 bg-white border border-gray-100 rounded-[2rem] shadow-2xl overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] origin-top-right",
-              isMobileMenuOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-95 -translate-y-4 pointer-events-none"
-            )}
-          >
-            <nav className="flex flex-col p-3">
-              {menuItems.map((item) => (
-                <button 
-                    key={item.id} 
-                    onClick={() => {
-                        setTab(item.id);
-                        setIsMobileMenuOpen(false);
-                    }} 
-                    className={classNames(
-                        "w-full flex items-center gap-4 rounded-xl px-5 py-4 transition-all duration-200 font-bold text-sm", 
-                        tab === item.id ? "bg-blue-50 text-brand scale-[0.98]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-                    )}
-                >
-                  <div className={classNames(
-                      "flex items-center justify-center w-10 h-10 rounded-xl text-lg transition-colors",
-                      tab === item.id ? "bg-brand text-white shadow-md" : "bg-white border border-gray-100"
-                  )}>
-                     {item.icon}
-                  </div>
-                  <span className="flex-1 text-left">{item.label}</span>
-                  
-                  {tab === item.id && (
-                      <svg className="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                      </svg>
-                  )}
-                </button>
-              ))}
-            </nav>
+        {/* Tabs / Filters Container */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div className="inline-flex items-center p-1.5 bg-white u-tabs-wrap rounded-2xl shadow-sm overflow-x-auto max-w-full">
+            {["upcoming", "my", "submit", "business_card"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={classNames(
+                  "px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap",
+                  tab === t ? "u-tab-active bg-[var(--u-sky)] text-brand" : "text-gray-500 hover:text-brand"
+                )}
+              >
+                {t === "upcoming" ? "Browse Events" : t === "my" ? "Registrations" : t === "submit" ? "Submit Paper" : "Business Card"}
+              </button>
+            ))}
           </div>
+
+          {tab === "upcoming" && (
+            <select 
+              value={filterType} 
+              onChange={(e) => setFilterType(e.target.value)} 
+              className="u-input-academic md:w-48 font-bold text-xs"
+            >
+              <option value="all">All Categories</option>
+              <option value="conference">Conference</option>
+              <option value="forum">Forum</option>
+              <option value="webinar">Webinar</option>
+            </select>
+          )}
         </div>
 
         {/* Tab Content */}
         <div className="min-h-[400px]">
-          {/* ONLY SHOW FILTER IF ON UPCOMING TAB */}
-          {tab === "upcoming" && (
-            <div className="flex justify-end mb-6 animate-fade-in-up">
-              <select 
-                value={filterType} 
-                onChange={(e) => setFilterType(e.target.value)} 
-                className="u-input-academic w-full md:w-48 font-bold text-xs shadow-sm"
-              >
-                <option value="all">All Event Categories</option>
-                <option value="conference">Conferences</option>
-                <option value="forum">Forums</option>
-                <option value="webinar">Webinars</option>
-              </select>
-            </div>
-          )}
-
           {tab === "upcoming" && (
             <div className="grid gap-6">
               {loading && <div className="flex justify-center p-20"><div className="spinner" /></div>}
@@ -574,8 +515,11 @@
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row md:flex-col gap-3 w-full md:w-56">
-                    <button onClick={() => openRegisterModal(event)} className="grad-btn px-6 py-3 rounded-xl text-white text-sm font-extrabold u-sweep relative overflow-hidden transition-all shadow-lg hover:shadow-xl">
+                    <button onClick={() => openRegisterModal(event)} className="grad-btn px-6 py-3 rounded-xl text-white text-sm font-extrabold u-sweep relative overflow-hidden transition-all">
                       Register Now
+                    </button>
+                    <button onClick={() => onDownloadInvitation?.(event)} className="px-6 py-3 rounded-xl border border-gray-200 text-brand text-sm font-extrabold hover:bg-gray-50 transition-all">
+                      Invitation PDF
                     </button>
                   </div>
                 </div>
@@ -591,7 +535,7 @@
                   <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-3xl mb-4">🗓️</div>
                   <h3 className="text-xl font-black text-brand mb-2">No Registrations Yet</h3>
                   <p className="text-gray-400 font-bold max-w-xs mx-auto mb-6">You haven't signed up for any academic events. Start exploring our upcoming schedule!</p>
-                  <button onClick={() => setTab("upcoming")} className="grad-btn px-8 py-3 rounded-xl text-white text-sm font-extrabold u-sweep relative overflow-hidden shadow-lg">
+                  <button onClick={() => setTab("upcoming")} className="grad-btn px-8 py-3 rounded-xl text-white text-sm font-extrabold u-sweep relative overflow-hidden">
                     Browse Events
                   </button>
                 </div>
@@ -602,7 +546,7 @@
                   return (
                     <div key={reg.id} className="reg-card rounded-[2.5rem] p-7 shadow-sm">
                       <div className="flex justify-between items-start mb-6">
-                        <div className="h-14 w-14 rounded-2xl bg-[var(--u-sky)] flex items-center justify-center text-2xl shadow-inner border border-blue-50">
+                        <div className="h-14 w-14 rounded-2xl bg-[var(--u-sky)] flex items-center justify-center text-2xl shadow-inner">
                           {isApproved ? "✅" : "⏳"}
                         </div>
                         <span className={classNames("status-pill", `status-${status}`)}>
@@ -629,7 +573,7 @@
                       <div className="mt-auto pt-6 border-t border-gray-50 flex gap-2">
                         <button 
                           onClick={() => setPreviewReg(reg)}
-                          className="flex-1 py-3 rounded-xl bg-gray-50 text-gray-600 text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 border border-gray-100 transition-colors"
+                          className="flex-1 py-3 rounded-xl bg-gray-50 text-gray-600 text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-colors"
                         >
                           Details
                         </button>
@@ -664,7 +608,7 @@
           )}
 
           {tab === "submit" && (
-            <div className="grid lg:grid-cols-12 gap-8 animate-fade-in-up">
+            <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-4">
                 <div className="u-card p-8 rounded-[2rem]">
                   <h3 className="text-xl font-black text-brand mb-2">Academic Submission</h3>
@@ -698,7 +642,7 @@
                      </div>
                      
                      {/* FIXED BUTTON TEXT */}
-                     <button type="submit" disabled={paperSaving} className="grad-btn w-full py-3 rounded-xl text-white font-extrabold u-sweep relative overflow-hidden mt-4 shadow-lg">
+                     <button type="submit" disabled={paperSaving} className="grad-btn w-full py-3 rounded-xl text-white font-extrabold u-sweep relative overflow-hidden mt-4">
                        {paperSaving ? "Processing..." : "Submit Paper"}
                      </button>
 
