@@ -892,29 +892,32 @@ function App() {
     } catch (err) { setEvents(FAKE_EVENTS); } finally { setLoadingEvents(false); }
   }
 
- // In App.js
-async function loadRegistrations() {
-  if (!user) return;
-  try {
-    const response = await fetch(`${API_BASE_URL}/registrations`);
-    const all = await response.json();
-    if (Array.isArray(all)) {
-      const mine = user.role === 'admin' ? all : all.filter(r => r.user_email === user.email);
-      setRegistrations(mine.map(r => ({
-        id: r.id,
-        userEmail: r.user_email,
-        fullName: r.full_name,
-        eventId: r.event_id,
-        eventTitle: r.event_title,
-        startDate: r.start_date, 
-        endDate: r.end_date,
-        status: r.status,
-        companions: r.companions || [],
-        validId: r.valid_id_path // <--- ADD THIS LINE HERE
-      })));
-    }
-  } catch (err) { console.error(err); }
-}
+  // In App.js
+  async function loadRegistrations() {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem('conexus_token'); // SECURE: Grab token
+      const response = await fetch(`${API_BASE_URL}/registrations`, {
+        headers: { 'Authorization': `Bearer ${token}` } // SECURE: Attach token
+      });
+      const all = await response.json();
+      if (Array.isArray(all)) {
+        const mine = user.role === 'admin' ? all : all.filter(r => r.user_email === user.email);
+        setRegistrations(mine.map(r => ({
+          id: r.id,
+          userEmail: r.user_email,
+          fullName: r.full_name,
+          eventId: r.event_id,
+          eventTitle: r.event_title,
+          startDate: r.start_date, 
+          endDate: r.end_date,
+          status: r.status,
+          companions: r.companions || [],
+          validId: r.valid_id_path // <--- ADD THIS LINE HERE
+        })));
+      }
+    } catch (err) { console.error(err); }
+  }
 
   // Initial Load
   useEffect(() => { loadEvents(); }, []);
@@ -934,8 +937,16 @@ async function loadRegistrations() {
     setView(nextView);
   };
 
-  const handleLogout = () => { setUser(null); setRegistrations([]); setSubmissions([]); setView("landing"); };
+  // SECURE: Destroy token on logout
+  const handleLogout = () => { 
+    localStorage.removeItem('conexus_token'); 
+    setUser(null); 
+    setRegistrations([]); 
+    setSubmissions([]); 
+    setView("landing"); 
+  };
 
+  // SECURE: Save token on login
   const handleLogin = async ({ email, password }) => {
     const cleanEmail = (email || "").toLowerCase().trim();
     try {
@@ -946,6 +957,9 @@ async function loadRegistrations() {
       });
       const result = await response.json();
       if (result.success) {
+        
+        localStorage.setItem('conexus_token', result.token); // SECURE: Save Token
+
         setUser(result.user);
         if (result.user.role === 'admin') setView('admin');
         else if (result.user.role === 'presenter') setView('presenter');
@@ -955,6 +969,7 @@ async function loadRegistrations() {
     } catch (err) { return { ok: false, message: "Unable to connect to server." }; }
   };
 
+  // SECURE: Auto-login after registration to fetch the token
   const handleRegister = async (form) => {
     const payload = { name: form.name, email: form.email.toLowerCase().trim(), password: form.password, university: form.university || "" };
     try {
@@ -964,7 +979,11 @@ async function loadRegistrations() {
         body: JSON.stringify(payload)
       });
       const result = await response.json();
-      if (result.success) { setUser({ ...payload, role: "participant" }); setView("participant"); alert("Account created!"); }
+      if (result.success) { 
+        // Force a login to get the JWT token
+        await handleLogin({ email: payload.email, password: payload.password });
+        alert("Account created!"); 
+      }
       else alert("Registration Failed: " + result.message);
     } catch (err) { alert("Unable to connect to server."); }
   };
@@ -985,13 +1004,18 @@ async function loadRegistrations() {
     setRegModalOpen(true); 
   };
 
+  // SECURE: Attach token to legacy registration modal
   const handleFinalRegister = async (companionData) => {
     const event = targetEvent;
     setRegModalOpen(false);
     try {
+      const token = localStorage.getItem('conexus_token');
       const response = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // SECURE: Attach Token
+        },
         body: JSON.stringify({ user_email: user.email, event_id: event.id, companions: companionData })
       });
       const result = await response.json();
@@ -1002,15 +1026,21 @@ async function loadRegistrations() {
     } catch (err) { alert("Server connection error."); }
   };
 
+  // SECURE: Attach token to update registration status
   const handleUpdateRegistrationStatus = async (regId, newStatus) => {
     setRegistrations(p => p.map(r => (r.id === regId ? { ...r, status: newStatus } : r)));
+    const token = localStorage.getItem('conexus_token');
     await fetch(`${API_BASE_URL}/registrations/${regId}`, {
       method: 'PUT',
-      headers: {'Content-Type':'application/json'},
+      headers: {
+        'Content-Type':'application/json',
+        'Authorization': `Bearer ${token}` // SECURE: Attach Token
+      },
       body: JSON.stringify({status: newStatus})
     });
   };
 
+  // SECURE: Attach token to paper submission upload
   const handleCreateSubmission = async ({ title, track, abstract, file, eventId = null }) => {
     if (!user) return alert("Login first.");
     if (!file) return alert("Please attach a PDF file.");
@@ -1023,11 +1053,11 @@ async function loadRegistrations() {
     formData.append("file", file); 
     
     try {
-      const token = localStorage.getItem('conexus_token'); // Get the badge
+      const token = localStorage.getItem('conexus_token'); // SECURE: Get the badge
       const response = await fetch(`${API_BASE_URL}/submissions`, { 
           method: 'POST', 
           headers: {
-              'Authorization': `Bearer ${token}` // Show the badge
+              'Authorization': `Bearer ${token}` // SECURE: Attach Token (DO NOT ADD CONTENT-TYPE FOR FORMDATA)
           },
           body: formData 
       });
@@ -1039,10 +1069,14 @@ async function loadRegistrations() {
     } catch (err) { alert("Submission error."); }
   };
 
+  // SECURE: Attach token to loading user's previous submissions
   useEffect(() => {
     async function load(u) {
       if (!u) return;
-      const res = await fetch(`${API_BASE_URL}/submissions?email=${encodeURIComponent(u.email)}`);
+      const token = localStorage.getItem('conexus_token');
+      const res = await fetch(`${API_BASE_URL}/submissions?email=${encodeURIComponent(u.email)}`, {
+        headers: { 'Authorization': `Bearer ${token}` } // SECURE: Attach Token
+      });
       const data = await res.json();
       if (Array.isArray(data)) setSubmissions(data.map(s => ({
         id: s.id,
