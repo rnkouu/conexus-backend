@@ -1274,32 +1274,86 @@
 
    return (
       <section className="relative max-w-7xl mx-auto px-4 py-8">
-        <div className="grid gap-6 md:grid-cols-[220px,minmax(0,1fr)]">
+        
+        {/* UNIFIED HEADER & ANIMATED DROPDOWN (PC & Mobile) */}
+        <div className="relative mb-8 z-40">
           
-          {/* UPDATED: Mobile-responsive Sidebar / Swipe Menu */}
-          <aside className="rounded-2xl bg-white border border-gray-100 shadow-sm p-3 md:p-4 relative md:h-fit md:sticky md:top-24 z-20 mb-2 md:mb-0 overflow-hidden">
-            <div className="mb-4 hidden md:block">
-              <p className="text-[11px] text-gray-500 mb-1 font-bold uppercase tracking-widest">Admin panel</p>
-              <p className="font-display text-lg font-extrabold text-brand truncate">{user.name || "Admin"}</p>
+          {/* 1. Top Header Bar */}
+          <div className="flex items-center justify-between bg-white rounded-[2rem] border border-gray-100 p-5 md:px-8 md:py-6 shadow-sm relative z-50">
+            <div>
+              <p className="text-[10px] md:text-xs text-gray-400 mb-1 font-black uppercase tracking-[0.2em]">Conexus Event System</p>
+              <p className="font-display text-xl md:text-2xl font-black text-brand tracking-tight flex items-center gap-3">
+                 <span className="w-3 h-3 rounded-full bg-[var(--u-gold)] shadow-[0_0_0_4px_rgba(245,197,24,0.15)]"></span>
+                 Admin: {user.name || "Administrator"}
+              </p>
             </div>
-            <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto scrollbar-hide pb-2 md:pb-0 items-center md:items-stretch">
+            
+            {/* Hamburger Button with Rotation Animation */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+              className={classNames(
+                  "p-3 md:p-4 rounded-2xl border-2 transition-all duration-300",
+                  isMobileMenuOpen ? "bg-brand border-brand text-white shadow-lg" : "bg-gray-50 border-gray-100 text-gray-600 hover:border-gray-200 hover:bg-gray-100"
+              )}
+              title="Toggle Menu"
+            >
+              <svg 
+                className="w-6 h-6 md:w-7 md:h-7 transition-transform duration-300" 
+                style={{ transform: isMobileMenuOpen ? 'rotate(90deg)' : 'rotate(0deg)' }} 
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                {isMobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+          </div>
+
+          {/* 2. The Animated Dropdown Menu (Fireship/Facebook Style) */}
+          <div 
+            className={classNames(
+              "absolute top-full right-0 mt-4 w-full md:w-80 bg-white border border-gray-100 rounded-[2rem] shadow-2xl overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] origin-top-right",
+              isMobileMenuOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-95 -translate-y-4 pointer-events-none"
+            )}
+          >
+            <nav className="flex flex-col p-3">
               {[{ id: "dashboard", label: "Dashboard", icon: "📊" }, { id: "accommodation", label: "Accommodation", icon: "🛏️" }, { id: "registrations", label: "Registrations", icon: "📝" }, { id: "ojs", label: "Submissions", icon: "📄" }, { id: "attendance", label: "Attendance", icon: "🎟️" }, { id: "portals", label: "Portals", icon: "🌐" }, { id: "certificates", label: "Certificates", icon: "🏅" }].map((item) => (
                 <button 
                     key={item.id} 
-                    onClick={() => setSection(item.id)} 
+                    onClick={() => {
+                        setSection(item.id);
+                        setIsMobileMenuOpen(false); // Auto-close when clicked
+                    }} 
                     className={classNames(
-                        "shrink-0 md:w-full flex items-center gap-2 rounded-xl px-4 md:px-3 py-2.5 md:py-2 transition-all font-bold whitespace-nowrap text-sm border md:border-transparent", 
-                        section === item.id ? "bg-brand text-white shadow-md border-transparent" : "text-gray-600 hover:bg-soft bg-gray-50 md:bg-transparent border-gray-200"
+                        "w-full flex items-center gap-4 rounded-xl px-5 py-4 transition-all duration-200 font-bold text-sm", 
+                        section === item.id ? "bg-blue-50 text-brand scale-[0.98]" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                     )}
                 >
-                  <span className="text-base">{item.icon}</span>
-                  <span>{item.label}</span>
+                  <div className={classNames(
+                      "flex items-center justify-center w-10 h-10 rounded-xl text-lg transition-colors",
+                      section === item.id ? "bg-brand text-white shadow-md" : "bg-white border border-gray-100"
+                  )}>
+                     {item.icon}
+                  </div>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  
+                  {/* Arrow indicator for active tab */}
+                  {section === item.id && (
+                      <svg className="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                      </svg>
+                  )}
                 </button>
               ))}
             </nav>
-          </aside>
+          </div>
 
-          <main className="min-w-0">
+        </div>
+
+        {/* 3. Main Content Area (Now takes full width of the screen) */}
+        <main className="min-w-0 animate-fade-in-up">
             {section === "dashboard" && <DashboardTab events={events} registrations={registrations} onCreateEvent={() => { setEditEventId(null); setEventForm({ title: "", description: "", startDate: "", endDate: "", location: "", featured: false }); setCreateEventOpen(true); }} onExport={handleExport} onEditEvent={(ev) => { setEditEventId(ev.id); setEventForm({ ...ev }); setCreateEventOpen(true); }} onDeleteEvent={handleDeleteEvent} />}
             {section === "accommodation" && <AccommodationTab dorms={dorms} rooms={rooms} registrations={registrations} onAddDorm={handleAddDorm} onDeleteDorm={handleDeleteDorm} onAddRoom={handleAddRoom} onDeleteRoom={handleDeleteRoom} />}
             {section === "registrations" && 
@@ -1321,8 +1375,7 @@
             {section === "attendance" && <AttendanceTab logs={logs} />}
             {section === "portals" && <PortalsTab portals={portals} events={events} onCreatePortal={handleCreatePortal} onDeletePortal={handleDeletePortal} />}
             {section === "certificates" && <CertificatesTab events={events} registrations={registrations} onIssueCert={(r) => { setCertTarget(r); setCertDrawerOpen(true); }} batchStatus={batchStatus} onBatchEmail={handleBatchEmail} onOpenDesigner={() => setSection("admin-certificate-designer")} />}
-          </main>
-        </div>
+        </main>
         
         {/* Modals */}
         <CreateEventModal isOpen={createEventOpen} isSaving={createEventSaving} editId={editEventId} formData={eventForm} onChange={(e) => { const { name, value, type, checked } = e.target; setEventForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); }} onClose={() => setCreateEventOpen(false)} onSave={saveEvent} />
