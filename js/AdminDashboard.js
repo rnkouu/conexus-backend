@@ -1,3 +1,4 @@
+// js/AdminDashboard.js
 (function () {
   // 1. Guard: Ensure React exists
   if (!window.React || !window.React.useState) {
@@ -15,10 +16,8 @@
   const API_BASE = "https://conexus-backend-production.up.railway.app/api";
   const EMAIL_API = "https://conexus-backend-production.up.railway.app/api";
   
-  // Your Local OJS Dashboard URL
   const OJS_DASHBOARD_URL = "http://localhost:8080/index.php/crj/dashboard/editorial#submissions";
 
-  // Helper to fetch auth token
   const getAuthHeaders = () => {
     const token = localStorage.getItem('conexus_token');
     return {
@@ -243,8 +242,8 @@
     return createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-fade-in-up">{children}</div></div>, document.body);
   }
 
-  // --- REVOKE MODAL ---
-  function RevokeModal({ isOpen, onClose, onConfirm, targetName }) {
+  // --- UPDATED REVOKE MODAL ---
+  function RevokeModal({ isOpen, onClose, onConfirm, targetName, isPending }) {
     if (!isOpen) return null;
     const [note, setNote] = useState("");
 
@@ -256,16 +255,18 @@
     return createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up p-8">
-            <h3 className="text-xl font-extrabold text-gray-900 mb-2">Revoke Registration</h3>
+            <h3 className="text-xl font-extrabold text-gray-900 mb-2">
+                {isPending ? "Reject Registration" : "Revoke Registration"}
+            </h3>
             <p className="text-sm text-gray-500 mb-6">
-                You are about to revoke approval for <strong className="text-brand">{targetName}</strong>. 
+                You are about to {isPending ? "reject" : "revoke approval for"} <strong className="text-brand">{targetName}</strong>. 
                 Please provide a reason or admin note.
             </p>
             <form onSubmit={handleSubmit}>
                 <textarea 
                     className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm focus:border-brand outline-none resize-none"
                     rows="4"
-                    placeholder="Reason for revocation (e.g. Invalid ID, Payment not received)..."
+                    placeholder="Reason for decision (e.g. Invalid ID, Not eligible)..."
                     value={note}
                     onChange={e => setNote(e.target.value)}
                     autoFocus
@@ -275,9 +276,9 @@
                     <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
                     <button 
                         type="submit"
-                        className="flex-1 py-3 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 shadow-lg"
+                        className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 shadow-lg"
                     >
-                        Confirm Revoke
+                        {isPending ? "Confirm Reject" : "Confirm Revoke"}
                     </button>
                 </div>
             </form>
@@ -304,7 +305,7 @@
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Email</p><p className="text-sm font-medium text-gray-600">{reg.userEmail}</p></div>
                 </div>
                 
-                {/* NEW: Valid ID Preview */}
+                {/* Valid ID Preview */}
                 <div className="space-y-2 pt-4">
                     <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Valid ID</h4>
                     {fileUrl ? (
@@ -315,11 +316,11 @@
                     ) : <p className="text-xs text-gray-400 italic">No ID uploaded.</p>}
                 </div>
 
-                {/* NEW: Show Admin Note in Preview */}
-                {reg.adminNote && (
-                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl mt-4">
-                        <p className="text-[10px] font-bold text-amber-600 uppercase">Admin Note</p>
-                        <p className="text-xs text-amber-800 mt-1">{reg.adminNote}</p>
+                {/* Show Admin Note in Preview */}
+                {(reg.adminNote || reg.admin_note) && (
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl mt-4">
+                        <p className="text-[10px] font-bold text-red-600 uppercase">Admin Note</p>
+                        <p className="text-xs text-red-800 mt-1">{reg.adminNote || reg.admin_note}</p>
                     </div>
                 )}
             </div>
@@ -365,7 +366,6 @@
                 <input type="text" name="title" required className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 text-gray-800 focus:bg-white focus:border-brand transition-all text-lg outline-none" value={formData.title} onChange={onChange} />
               </div>
 
-              {/* NEW: Type and Mode Selectors */}
               <div className="grid grid-cols-2 gap-6">
                  <div className="space-y-2">
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Event Type</label>
@@ -794,10 +794,16 @@
                                 Preview
                               </button>
                               
+                              {/* ADDED REJECT BUTTON HERE FOR 'FOR APPROVAL' STATUS */}
                               {!isApproved && !isRejected && (
-                                  <button onClick={() => onUpdateStatus(r.id, "Approved", r.roomId)} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-200 hover:bg-emerald-600 hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                                    Approve
-                                  </button>
+                                  <>
+                                      <button onClick={() => onUpdateStatus(r.id, "Approved", r.roomId)} className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-200 hover:bg-emerald-600 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                                        Approve
+                                      </button>
+                                      <button onClick={() => onRevoke(r)} className="px-4 py-1.5 rounded-lg bg-red-500 text-white text-xs font-bold shadow-md shadow-red-200 hover:bg-red-600 hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                                        Reject
+                                      </button>
+                                  </>
                               )}
 
                               {isApproved && (
@@ -1001,7 +1007,6 @@
           <h2 className="font-display text-2xl font-semibold mb-1">Attendance Logs</h2>
           <p className="text-sm text-gray-600">Real-time scan logs.</p>
         </div>
-        {/* NEW: Live Syncing Indicator */}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100">
             <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -1048,7 +1053,6 @@
     const user = props.user || {};
     const [section, setSection] = useState("dashboard");
     
-    // THIS IS THE LINE THAT WAS MISSING AND CAUSED THE CRASH:
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const [events, setEvents] = useState([]);
@@ -1076,7 +1080,6 @@
     // NEW: State for Revoke Modal
     const [revokeTarget, setRevokeTarget] = useState(null);
 
-    // --- CRASH PROOF LOAD DATA APPLIED HERE ---
     const loadData = () => {
       Promise.all([
         fetch(`${API_BASE}/events`).then(r => r.ok ? r.json() : []).catch(() => []),
@@ -1091,20 +1094,19 @@
         setPortals(Array.isArray(por) ? por.map(normalizePortal) : []);
         setDorms(Array.isArray(dor) ? dor.map(normalizeDorm) : []);
         setRooms(Array.isArray(roo) ? roo.map(normalizeRoom) : []);
-        setLogs(Array.isArray(lgs) ? lgs : []); // Crash Proof!
+        setLogs(Array.isArray(lgs) ? lgs : []);
       });
     };
 
     useEffect(() => { loadData(); }, []);
 
-    // --- CRASH PROOF FETCH LOGS APPLIED HERE ---
     useEffect(() => {
         let interval;
         if (section === "attendance") {
             const fetchLogs = () => {
                 fetch(`${API_BASE}/attendance_logs`, { headers: getAuthHeaders() }) 
-                    .then(r => r.ok ? r.json() : []) // Crash Proof!
-                    .then(data => setLogs(Array.isArray(data) ? data : [])) // Crash Proof!
+                    .then(r => r.ok ? r.json() : []) 
+                    .then(data => setLogs(Array.isArray(data) ? data : [])) 
                     .catch(console.error);
             };
 
@@ -1131,7 +1133,7 @@
 
         const res = await fetch(url, {
             method: method,
-            headers: getAuthHeaders(), // SECURED
+            headers: getAuthHeaders(),
             body: JSON.stringify(eventForm)
         });
         
@@ -1143,20 +1145,12 @@
     };
     
     const handleDeleteEvent = async (id) => { 
-        if (confirm("Are you sure you want to delete this event?")) { 
+        if (confirm("Delete event?")) { 
+            setEvents(prev => prev.filter(e => e.id !== id));
             try {
-                const res = await fetch(`${API_BASE}/delete_event/${id}`, { 
-                    method: 'DELETE', 
-                    headers: getAuthHeaders() 
-                }); 
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    setEvents(prev => prev.filter(e => e.id !== id));
-                } else {
-                    alert("Failed to delete event: It likely has active registrations tied to it. Please delete the registrations first.");
-                }
+                await fetch(`${API_BASE}/delete_event/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
             } catch (e) {
-                alert("Network error while trying to delete the event.");
+                loadData(); 
             }
         } 
     };
@@ -1168,7 +1162,7 @@
 
       await fetch(`${API_BASE}/registrations/${id}`, { 
           method: 'PUT', 
-          headers: getAuthHeaders(), // SECURED
+          headers: getAuthHeaders(),
           body: JSON.stringify(payload) 
       });
       loadData();
@@ -1185,7 +1179,7 @@
         if (confirm("Delete?")) { 
             setRegistrations(prev => prev.filter(r => r.id !== id));
             try {
-                await fetch(`${API_BASE}/registrations/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); // SECURED
+                await fetch(`${API_BASE}/registrations/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
             } catch (e) {
                 loadData();
             }
@@ -1201,7 +1195,7 @@
       try {
         const res = await fetch(`${API_BASE}/registrations/${nfcTargetReg.id}/assign-nfc`, {
           method: 'PUT',
-          headers: getAuthHeaders(), // SECURED
+          headers: getAuthHeaders(),
           body: JSON.stringify({ nfc_card_id: scannedId })
         });
         
@@ -1217,7 +1211,7 @@
     };
 
     const handleAddDorm = async (name, type) => { 
-        await fetch(`${API_BASE}/dorms`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ name, type }) }); // SECURED
+        await fetch(`${API_BASE}/dorms`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ name, type }) });
         loadData(); 
     };
     
@@ -1225,13 +1219,13 @@
         if (confirm("Delete location?")) { 
             setDorms(prev => prev.filter(d => d.id !== id));
             try {
-                await fetch(`${API_BASE}/dorms/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); // SECURED
+                await fetch(`${API_BASE}/dorms/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
             } catch(e) { loadData(); }
         } 
     };
 
     const handleAddRoom = async (form) => { 
-        await fetch(`${API_BASE}/rooms`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(form) }); // SECURED
+        await fetch(`${API_BASE}/rooms`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(form) });
         loadData(); 
     };
     
@@ -1239,7 +1233,7 @@
         if (confirm("Delete room?")) { 
             setRooms(prev => prev.filter(r => r.id !== id));
             try {
-                await fetch(`${API_BASE}/rooms/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); // SECURED
+                await fetch(`${API_BASE}/rooms/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
             } catch(e) { loadData(); }
         } 
     };
@@ -1248,9 +1242,9 @@
         const newPortal = { id: makeUUID(), ...form, createdAt: new Date().toISOString() };
         setPortals(prev => [newPortal, ...prev]);
         try {
-            await fetch(`${API_BASE}/portals`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(newPortal) }); // SECURED
+            await fetch(`${API_BASE}/portals`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(newPortal) });
         } catch (e) {
-            loadData(); // Revert
+            loadData();
         }
         return true; 
     };
@@ -1259,7 +1253,7 @@
         if (confirm("Delete?")) { 
             setPortals(prev => prev.filter(p => p.id !== id));
             try {
-                await fetch(`${API_BASE}/portals/${id}`, { method: 'DELETE', headers: getAuthHeaders() }); // SECURED
+                await fetch(`${API_BASE}/portals/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
             } catch(e) { loadData(); }
         } 
     };
@@ -1391,10 +1385,11 @@
         <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onPrint={issueCertNow} />
         <RegistrationPreviewModal reg={previewTarget} onClose={() => setPreviewTarget(null)} />
         
-        {/* REVOKE MODAL */}
+        {/* REVOKE / REJECT MODAL */}
         <RevokeModal 
             isOpen={!!revokeTarget} 
             targetName={revokeTarget?.fullName} 
+            isPending={revokeTarget?.status === 'For approval'}
             onClose={() => setRevokeTarget(null)} 
             onConfirm={handleRevokeConfirm} 
         />
