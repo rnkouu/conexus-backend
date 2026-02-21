@@ -913,7 +913,7 @@ function App() {
           endDate: r.end_date,
           status: r.status,
           roomId: r.room_id,
-          adminNote: r.admin_note, // 🚨 ADDED: Now the dashboard can see the note!
+          adminNote: r.admin_note,
           companions: r.companions || [],
           validId: r.valid_id_path 
         })));
