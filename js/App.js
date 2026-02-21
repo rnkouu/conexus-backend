@@ -893,16 +893,16 @@ function App() {
   }
 
   // In App.js
-  async function loadRegistrations() {
+ async function loadRegistrations() {
     if (!user) return;
     try {
-      const token = localStorage.getItem('conexus_token'); // SECURE: Grab token
+      const token = localStorage.getItem('conexus_token'); 
       const response = await fetch(`${API_BASE_URL}/registrations`, {
-        headers: { 'Authorization': `Bearer ${token}` } // SECURE: Attach token
+        headers: { 'Authorization': `Bearer ${token}` } 
       });
       const all = await response.json();
       if (Array.isArray(all)) {
-        const mine = user.role === 'admin' ? all : all.filter(r => r.user_email === user.email);
+        const mine = user.role === 'admin' ? all : all.filter(r => String(r.user_email).toLowerCase() === String(user.email).toLowerCase());
         setRegistrations(mine.map(r => ({
           id: r.id,
           userEmail: r.user_email,
@@ -912,7 +912,8 @@ function App() {
           startDate: r.start_date, 
           endDate: r.end_date,
           status: r.status,
-          roomId: r.room_id, // <--- THIS IS THE FIX. Now the room ID passes through.
+          roomId: r.room_id,
+          adminNote: r.admin_note, // 🚨 ADDED: Now the dashboard can see the note!
           companions: r.companions || [],
           validId: r.valid_id_path 
         })));
