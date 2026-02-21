@@ -120,7 +120,8 @@
         companions: companionList,
         validId: row.valid_id_path || null,
         adminNote: row.admin_note || null,
-        certificateIssuedAt: row.certificate_issued_at || null
+        certificateIssuedAt: row.certificate_issued_at || null,
+        profile_slug: row.profile_slug || null
     };
   };
 
@@ -673,6 +674,29 @@
     const [filterStatus, setFilterStatus] = useState("all");
     const filtered = registrations.filter(r => (filterEvent === "all" || String(r.eventId) === filterEvent) && (filterStatus === "all" || r.status === filterStatus));
     
+    // --- ADD THIS FUNCTION HERE ---
+    const handleWriteNFC = async (participant) => {
+        if (!('NDEFReader' in window)) {
+            alert('⚠️ Web NFC is not supported on this device. Please use Google Chrome on an Android phone or tablet.');
+            return;
+        }
+        try {
+            const slug = participant.profile_slug || `user-${participant.id}`;
+            const nfcUrl = `https://cconexus.vercel.app/?nfc=${slug}`;
+            const ndef = new window.NDEFReader();
+            
+            alert(`Ready to write! Tap the blank NFC card against the back of your phone now.`);
+            
+            await ndef.write({
+                records: [{ recordType: "url", data: nfcUrl }]
+            });
+            alert(`✅ Success! ${participant.fullName}'s Digital Business Card is now linked.`);
+        } catch (error) {
+            console.error("NFC Write Error:", error);
+            alert(`❌ Failed to write to card. Error: ${error.message}`);
+        }
+    };
+    
     return (
       <div className="space-y-6">
         {/* Header Controls */}
@@ -694,6 +718,8 @@
             </select>
           </div>
         </div>
+
+        
 
         {/* Main Table */}
         <div className="rounded-3xl bg-white border border-gray-100 shadow-xl shadow-gray-200/40 overflow-hidden">
@@ -790,6 +816,11 @@
                       {/* 5. Actions */}
                       <td className="px-8 py-5 align-middle text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button 
+                                  onClick={() => handleWriteNFC(r)}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                  title="Write to physical NFC Card (Android Only)"
+                              ></button>
                               <button onClick={() => onPreview(r)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-all">
                                 Preview
                               </button>
