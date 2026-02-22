@@ -233,7 +233,7 @@ const GLOBAL_STYLES = `
 })();
 
 // === API BASE URL ===
-const API_BASE_URL = "https://conexus-backend-production.up.railway.app/api";
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "https://conexus-backend-production.up.railway.app/api";
 
 function Breadcrumbs({ items = [] }) {
   return (

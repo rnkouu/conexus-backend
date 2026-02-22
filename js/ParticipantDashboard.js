@@ -298,7 +298,7 @@
   // ==========================================
   // CONFIGURATION
   // ==========================================
-  const API_BASE = "https://conexus-backend-production.up.railway.app/api";
+  const API_BASE = process.env.REACT_APP_API_BASE || "https://conexus-backend-production.up.railway.app/api";
   
   const getAuthHeaders = () => {
     const token = localStorage.getItem('conexus_token');

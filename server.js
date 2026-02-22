@@ -32,9 +32,8 @@ const OJS_CONFIG = {
 // --- CORS Configuration ---
 app.use(cors({
     origin: [
-        'https://cconexus.vercel.app',    
-        'https://conexus-frontend-chi.vercel.app', 
-        'http://localhost:3000'
+        'https://cconexus.vercel.app',    // Your main live site
+        'http://localhost:3000'           // Keep this for local testing
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,

@@ -13,7 +13,7 @@
   // ==========================================
   // CONFIGURATION
   // ==========================================
-  const API_BASE = "https://conexus-backend-production.up.railway.app/api";
+  const API_BASE = process.env.REACT_APP_API_BASE || "https://conexus-backend-production.up.railway.app/api";
   const EMAIL_API = "https://conexus-backend-production.up.railway.app/api";
   
   const OJS_DASHBOARD_URL = "http://localhost:8080/index.php/crj/dashboard/editorial#submissions";
