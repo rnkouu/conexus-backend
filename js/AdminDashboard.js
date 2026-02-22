@@ -243,7 +243,6 @@
     return createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-fade-in-up">{children}</div></div>, document.body);
   }
 
-  // --- UPDATED REVOKE MODAL ---
   function RevokeModal({ isOpen, onClose, onConfirm, targetName, isPending }) {
     if (!isOpen) return null;
     const [note, setNote] = useState("");
@@ -306,7 +305,6 @@
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Email</p><p className="text-sm font-medium text-gray-600">{reg.userEmail}</p></div>
                 </div>
                 
-                {/* Valid ID Preview */}
                 <div className="space-y-2 pt-4">
                     <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Valid ID</h4>
                     {fileUrl ? (
@@ -317,7 +315,6 @@
                     ) : <p className="text-xs text-gray-400 italic">No ID uploaded.</p>}
                 </div>
 
-                {/* Show Admin Note in Preview */}
                 {(reg.adminNote || reg.admin_note) && (
                     <div className="p-3 bg-red-50 border border-red-100 rounded-xl mt-4">
                         <p className="text-[10px] font-bold text-red-600 uppercase">Admin Note</p>
@@ -1104,6 +1101,553 @@
   );
 
   // ==========================================
+  // NLP REPORT + EXCEL EXPORT (sorted per event)
+  // ==========================================
+
+  function _safeArr(x) { return Array.isArray(x) ? x : []; }
+  function _safeStr(x) { try { return x == null ? "" : String(x); } catch (e) { return ""; } }
+  function _safeNum(x, fb = 0) { const n = Number(x); return Number.isFinite(n) ? n : fb; }
+  function _lower(x) { return _safeStr(x).trim().toLowerCase(); }
+  function _pct(n, d) { return d ? (Math.round((n / d) * 1000) / 10) + "%" : ""; }
+
+  function _excelSafe(v) {
+    const s = _safeStr(v);
+    if (!s) return v;
+    const first = s[0];
+    return (first === "=" || first === "+" || first === "-" || first === "@") ? ("'" + s) : v;
+  }
+
+  function _periodOf(ts) {
+    try {
+      const h = new Date(ts).getHours();
+      return h < 12 ? "Morning" : "Afternoon";
+    } catch (e) { return ""; }
+  }
+
+  function _isoOrEmpty(ts) {
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return "";
+      return d.toISOString();
+    } catch (e) { return ""; }
+  }
+
+  function _buildEventIndex(events) {
+    const byId = {};
+    const idByTitle = {};
+    const order = {};
+
+    _safeArr(events).forEach((ev) => {
+      const id = String(ev.id);
+      byId[id] = ev;
+      const t = _lower(ev.title);
+      if (t && !idByTitle[t]) idByTitle[t] = id;
+    });
+
+    const sorted = _safeArr(events).slice().sort((a, b) => {
+      const da = _safeStr(a.startDate || "");
+      const db = _safeStr(b.startDate || "");
+      if (da !== db) return da.localeCompare(db);
+      return _safeStr(a.title || "").localeCompare(_safeStr(b.title || ""));
+    });
+
+    sorted.forEach((ev, i) => {
+      order[String(ev.id)] = i;
+    });
+
+    return { byId, idByTitle, order };
+  }
+
+  function _resolveEventIdFromLoose(evId, evTitle, index) {
+    const id = _safeStr(evId);
+    if (id && index.byId[id]) return id;
+    const t = _lower(evTitle);
+    if (t && index.idByTitle[t]) return index.idByTitle[t];
+    return null;
+  }
+
+  function _sortByEvent(orderMap, getEventId, getSecondary) {
+    return (a, b) => {
+      const ea = String(getEventId(a) || "");
+      const eb = String(getEventId(b) || "");
+      const oa = (ea in orderMap) ? orderMap[ea] : 999999;
+      const ob = (eb in orderMap) ? orderMap[eb] : 999999;
+      if (oa !== ob) return oa - ob;
+      const sa = _safeStr(getSecondary ? getSecondary(a) : "");
+      const sb = _safeStr(getSecondary ? getSecondary(b) : "");
+      return sa.localeCompare(sb);
+    };
+  }
+
+  function _groupAllByEvent({ events, registrations, portals, logs, submissions }) {
+    const index = _buildEventIndex(events);
+
+    const groups = {};
+    _safeArr(events).forEach(ev => {
+      const id = String(ev.id);
+      groups[id] = { event: ev, registrations: [], portals: [], logs: [], submissions: [] };
+    });
+
+    // Registrations
+    _safeArr(registrations).forEach(r => {
+      const id = _resolveEventIdFromLoose(r.eventId, r.eventTitle, index);
+      if (!id) return;
+      if (!groups[id]) groups[id] = { event: index.byId[id] || { id }, registrations: [], portals: [], logs: [], submissions: [] };
+      groups[id].registrations.push(r);
+    });
+
+    // Portals
+    _safeArr(portals).forEach(p => {
+      const id = _resolveEventIdFromLoose(p.eventId, p.eventTitle, index);
+      if (!id) return;
+      if (!groups[id]) groups[id] = { event: index.byId[id] || { id }, registrations: [], portals: [], logs: [], submissions: [] };
+      groups[id].portals.push(p);
+    });
+
+    // Logs
+    _safeArr(logs).forEach(l => {
+      const id = _resolveEventIdFromLoose(l.event_id || l.eventId, l.event_title || l.eventTitle, index);
+      if (!id) return;
+      if (!groups[id]) groups[id] = { event: index.byId[id] || { id }, registrations: [], portals: [], logs: [], submissions: [] };
+      groups[id].logs.push(l);
+    });
+
+    // Submissions
+    _safeArr(submissions).forEach(s => {
+      const id = _resolveEventIdFromLoose(s.event_id || s.eventId, s.event_title || s.eventTitle, index);
+      if (!id) return;
+      if (!groups[id]) groups[id] = { event: index.byId[id] || { id }, registrations: [], portals: [], logs: [], submissions: [] };
+      groups[id].submissions.push(s);
+    });
+
+    return { groups, index };
+  }
+
+  function _computeEventMetrics(group, dormsById, roomsById) {
+    const ev = group.event || {};
+    const regs = _safeArr(group.registrations);
+    const portals = _safeArr(group.portals);
+    const logs = _safeArr(group.logs);
+    const subs = _safeArr(group.submissions);
+
+    const totalRegs = regs.length;
+    const approvedRegs = regs.filter(r => r.status === "Approved");
+    const pendingRegs = regs.filter(r => r.status === "For approval");
+    const rejectedRegs = regs.filter(r => r.status === "Rejected");
+
+    const totalParticipantsDeclared = regs.reduce((sum, r) => sum + _safeNum(r.participantsCount, 1), 0);
+    const approvedParticipantsDeclared = approvedRegs.reduce((sum, r) => sum + _safeNum(r.participantsCount, 1), 0);
+
+    const approvedAssigned = approvedRegs.filter(r => !!r.roomId);
+    const approvedUnassigned = approvedRegs.filter(r => !r.roomId);
+
+    const locationCounts = {};
+    const roomPeopleUsage = {}; 
+    const roomRegUsage = {};    
+    approvedAssigned.forEach(r => {
+      const room = roomsById[String(r.roomId)];
+      const dorm = room ? dormsById[String(room.dormId)] : null;
+      const locKey = dorm ? `${dorm.type || ""} | ${dorm.name || ""}` : "Unknown | Unknown";
+      locationCounts[locKey] = (locationCounts[locKey] || 0) + 1;
+
+      const rid = String(r.roomId);
+      roomPeopleUsage[rid] = (roomPeopleUsage[rid] || 0) + _safeNum(r.participantsCount, 1);
+      roomRegUsage[rid] = (roomRegUsage[rid] || 0) + 1;
+    });
+
+    const topLocations = Object.keys(locationCounts)
+      .map(k => ({ key: k, count: locationCounts[k] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
+    const certIssued = approvedRegs.filter(r => !!r.certificateIssuedAt);
+    const certIssuedCount = certIssued.length;
+    const certRate = _pct(certIssuedCount, approvedRegs.length);
+
+    const scansTotal = logs.length;
+    const uniqueAttendees = new Set(logs.map(l => _safeStr(l.participant_email || l.user_email || l.participant_name || l.participantName).trim()).filter(Boolean));
+    const uniqueCount = uniqueAttendees.size;
+
+    const morningScans = logs.filter(l => _periodOf(l.scanned_at || l.scannedAt) === "Morning").length;
+    const afternoonScans = logs.filter(l => _periodOf(l.scanned_at || l.scannedAt) === "Afternoon").length;
+
+    const attendanceCoverageVsApprovedRegs = _pct(uniqueCount, approvedRegs.length);
+    const submissionsCount = subs.length;
+
+    const flags = [];
+    if (pendingRegs.length > 0) flags.push(`Pending registrations: ${pendingRegs.length}`);
+    if (approvedUnassigned.length > 0) flags.push(`Approved but not assigned to a room: ${approvedUnassigned.length}`);
+    if (approvedRegs.length > 0 && certIssuedCount < approvedRegs.length) flags.push(`Certificates not yet issued for ${approvedRegs.length - certIssuedCount} approved participants`);
+    if (approvedRegs.length > 0 && uniqueCount > 0 && uniqueCount < approvedRegs.length) flags.push(`Attendance coverage below 100% (unique scans vs approved): ${attendanceCoverageVsApprovedRegs}`);
+    if (approvedRegs.length > 0 && uniqueCount === 0 && scansTotal === 0) flags.push("No attendance logs recorded yet");
+
+    Object.keys(roomPeopleUsage).forEach(rid => {
+      const room = roomsById[rid];
+      const beds = room ? _safeNum(room.beds, 0) : 0;
+      const usedPeople = _safeNum(roomPeopleUsage[rid], 0);
+      if (beds > 0 && usedPeople > beds) flags.push(`Room over capacity: ${room?.name || rid} (${usedPeople}/${beds} people)`);
+    });
+
+    return {
+      eventId: String(ev.id || ""),
+      eventTitle: _safeStr(ev.title || ""),
+      startDate: _safeStr(ev.startDate || ""),
+      endDate: _safeStr(ev.endDate || ""),
+      type: _safeStr(ev.type || ""),
+      mode: _safeStr(ev.mode || ""),
+      location: _safeStr(ev.location || ""),
+      featured: !!ev.featured,
+
+      totalRegs,
+      approvedRegs: approvedRegs.length,
+      pendingRegs: pendingRegs.length,
+      rejectedRegs: rejectedRegs.length,
+      totalParticipantsDeclared,
+      approvedParticipantsDeclared,
+
+      approvedAssigned: approvedAssigned.length,
+      approvedUnassigned: approvedUnassigned.length,
+      topLocations,
+
+      certIssuedCount,
+      certRate,
+
+      scansTotal,
+      uniqueCount,
+      morningScans,
+      afternoonScans,
+      attendanceCoverageVsApprovedRegs,
+
+      portalsCount: portals.length,
+      submissionsCount,
+      flags,
+      roomPeopleUsage,
+      roomRegUsage,
+    };
+  }
+
+  function generateDashboardNlpReportPerEvent(payload) {
+    const dormsById = {};
+    const roomsById = {};
+    _safeArr(payload.dorms).forEach(d => { dormsById[String(d.id)] = d; });
+    _safeArr(payload.rooms).forEach(r => { roomsById[String(r.id)] = r; });
+
+    const { groups, index } = _groupAllByEvent(payload);
+
+    const items = Object.keys(groups)
+      .map(eventId => {
+        const group = groups[eventId];
+        const metrics = _computeEventMetrics(group, dormsById, roomsById);
+
+        const locLine = metrics.topLocations.length
+          ? metrics.topLocations.map(x => `${x.key.replace("|", "•")} (${x.count})`).join(", ")
+          : "None";
+
+        const reportText =
+`Event: ${metrics.eventTitle} (ID: ${metrics.eventId})
+Dates: ${metrics.startDate || "—"} to ${metrics.endDate || "—"} | Location: ${metrics.location || "—"} | Type: ${metrics.type || "—"} | Mode: ${metrics.mode || "—"}
+
+Dashboard (Registrations)
+- Total registrations: ${metrics.totalRegs}
+- Status: Approved ${metrics.approvedRegs} | Pending ${metrics.pendingRegs} | Rejected ${metrics.rejectedRegs}
+- Participants declared (incl. companions): ${metrics.totalParticipantsDeclared} total | ${metrics.approvedParticipantsDeclared} approved
+
+Accommodation
+- Approved assigned to rooms: ${metrics.approvedAssigned}
+- Approved unassigned: ${metrics.approvedUnassigned}
+- Top locations (by assigned regs): ${locLine}
+
+Submissions (Paper Submissions)
+- Submissions recorded: ${metrics.submissionsCount}
+
+Certificates
+- Certificates issued: ${metrics.certIssuedCount} (${metrics.certRate || "—"} of approved)
+
+Attendance
+- Total scans: ${metrics.scansTotal}
+- Unique attendees scanned: ${metrics.uniqueCount} (${metrics.attendanceCoverageVsApprovedRegs || "—"} vs approved regs)
+- Morning scans: ${metrics.morningScans} | Afternoon scans: ${metrics.afternoonScans}
+
+Notes / Flags
+- ${metrics.flags.length ? metrics.flags.join(" | ") : "No flags detected."}
+`;
+
+        return { eventId, eventTitle: metrics.eventTitle, metrics, reportText };
+      })
+      .sort((a, b) => {
+        const oa = (a.eventId in index.order) ? index.order[a.eventId] : 999999;
+        const ob = (b.eventId in index.order) ? index.order[b.eventId] : 999999;
+        return oa - ob || a.eventTitle.localeCompare(b.eventTitle);
+      });
+
+    return items;
+  }
+
+  function buildDashboardExcelWorkbook(payload) {
+    const XLSX = window.XLSX;
+    if (!XLSX || !XLSX.utils) throw new Error("SheetJS (XLSX) not found on window.");
+
+    const dormsById = {};
+    const roomsById = {};
+    _safeArr(payload.dorms).forEach(d => { dormsById[String(d.id)] = d; });
+    _safeArr(payload.rooms).forEach(r => { roomsById[String(r.id)] = r; });
+
+    const { groups, index } = _groupAllByEvent(payload);
+    const nlpItems = generateDashboardNlpReportPerEvent(payload);
+
+    const wb = XLSX.utils.book_new();
+
+    // ---------- Sheet: Event_Summary ----------
+    const summaryHeader = [
+      "Event ID","Event Title","Start Date","End Date","Type","Mode","Location","Featured",
+      "Registrations Total","Approved","Pending","Rejected",
+      "Participants Declared (Total)","Participants Declared (Approved)",
+      "Approved Assigned","Approved Unassigned",
+      "Certificates Issued","Certificate Issuance Rate",
+      "Attendance Scans","Attendance Unique","Attendance Coverage vs Approved (regs)","Morning Scans","Afternoon Scans",
+      "Portals","Submissions",
+      "Flags"
+    ];
+
+    const summaryRows = [summaryHeader];
+
+    nlpItems.forEach(item => {
+      const m = item.metrics;
+      summaryRows.push([
+        m.eventId, _excelSafe(m.eventTitle), m.startDate, m.endDate, m.type, m.mode, _excelSafe(m.location), m.featured ? "Yes" : "No",
+        m.totalRegs, m.approvedRegs, m.pendingRegs, m.rejectedRegs,
+        m.totalParticipantsDeclared, m.approvedParticipantsDeclared,
+        m.approvedAssigned, m.approvedUnassigned,
+        m.certIssuedCount, m.certRate,
+        m.scansTotal, m.uniqueCount, m.attendanceCoverageVsApprovedRegs, m.morningScans, m.afternoonScans,
+        m.portalsCount, m.submissionsCount,
+        _excelSafe(m.flags.join(" | "))
+      ]);
+    });
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+    wsSummary["!cols"] = summaryHeader.map((h, i) => ({ wch: Math.min(40, Math.max(12, h.length + (i === 1 ? 10 : 0))) }));
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Event_Summary");
+
+    // ---------- Sheet: Events (raw) ----------
+    const eventsRows = [["id","title","startDate","endDate","type","mode","location","featured","description","createdAt"]].concat(
+      _safeArr(payload.events)
+        .slice()
+        .sort(_sortByEvent(index.order, e => String(e.id), e => e.title))
+        .map(e => [String(e.id), _excelSafe(e.title), e.startDate, e.endDate, e.type, e.mode, _excelSafe(e.location), e.featured ? "Yes" : "No", _excelSafe(e.description || ""), _isoOrEmpty(e.createdAt)])
+    );
+    const wsEvents = XLSX.utils.aoa_to_sheet(eventsRows);
+    wsEvents["!cols"] = [{wch:10},{wch:40},{wch:12},{wch:12},{wch:14},{wch:12},{wch:26},{wch:10},{wch:50},{wch:22}];
+    XLSX.utils.book_append_sheet(wb, wsEvents, "Events");
+
+    // ---------- Sheet: Registrations (detailed) ----------
+    const regHeader = [
+      "Event Title","Event ID","Registration ID","Status",
+      "Full Name","Email","University",
+      "Participants Count","Companions Count",
+      "Dorm Type","Dorm Name","Room Name",
+      "NFC Card ID","Certificate Issued At",
+      "Admin Note","Valid ID Path","Profile Slug"
+    ];
+
+    const regsAll = _safeArr(payload.registrations).slice();
+    regsAll.sort(_sortByEvent(index.order, r => _resolveEventIdFromLoose(r.eventId, r.eventTitle, index), r => (r.status || "") + " " + (r.fullName || "")));
+
+    const regRows = [regHeader].concat(regsAll.map(r => {
+      const evId = _resolveEventIdFromLoose(r.eventId, r.eventTitle, index) || "";
+      const room = r.roomId ? roomsById[String(r.roomId)] : null;
+      const dorm = room ? dormsById[String(room.dormId)] : null;
+      const companions = _safeArr(r.companions);
+      return [
+        _excelSafe(r.eventTitle || (index.byId[evId]?.title || "")),
+        evId,
+        String(r.id || ""),
+        r.status || "",
+        _excelSafe(r.fullName || ""),
+        _excelSafe(r.userEmail || ""),
+        _excelSafe(r.university || ""),
+        _safeNum(r.participantsCount, 1),
+        companions.length,
+        dorm?.type || "",
+        _excelSafe(dorm?.name || ""),
+        _excelSafe(room?.name || ""),
+        _excelSafe(r.nfc_card_id || ""),
+        _isoOrEmpty(r.certificateIssuedAt),
+        _excelSafe(r.adminNote || r.admin_note || ""),
+        _excelSafe(r.validId || ""),
+        _excelSafe(r.profile_slug || "")
+      ];
+    }));
+
+    const wsRegs = XLSX.utils.aoa_to_sheet(regRows);
+    wsRegs["!cols"] = [{wch:40},{wch:10},{wch:16},{wch:14},{wch:26},{wch:28},{wch:20},{wch:16},{wch:16},{wch:12},{wch:24},{wch:12},{wch:18},{wch:22},{wch:40},{wch:32},{wch:22}];
+    XLSX.utils.book_append_sheet(wb, wsRegs, "Registrations");
+
+    // ---------- Sheet: Accommodation_Rooms ----------
+    const roomHeader = ["Dorm Type","Dorm Name","Dorm ID","Room ID","Room Name","Beds","Approved Assignments (#regs)","Approved People (#declared)","Events Involved"];
+    const approvedAssignedRegs = _safeArr(payload.registrations).filter(r => r.status === "Approved" && !!r.roomId);
+
+    const byRoom = {};
+    approvedAssignedRegs.forEach(r => {
+      const rid = String(r.roomId);
+      if (!byRoom[rid]) byRoom[rid] = { regs: [], events: new Set(), people: 0 };
+      byRoom[rid].regs.push(r);
+      byRoom[rid].people += _safeNum(r.participantsCount, 1);
+      const evId = String(r.eventId || "");
+      const ev = index.byId[evId];
+      if (ev && ev.title) byRoom[rid].events.add(ev.title);
+      else if (r.eventTitle) byRoom[rid].events.add(r.eventTitle);
+    });
+
+    const roomsSorted = _safeArr(payload.rooms).slice().sort((a, b) => {
+      const da = dormsById[String(a.dormId)]?.name || "";
+      const db = dormsById[String(b.dormId)]?.name || "";
+      return da.localeCompare(db) || _safeStr(a.name).localeCompare(_safeStr(b.name));
+    });
+
+    const roomRows = [roomHeader].concat(roomsSorted.map(rm => {
+      const dorm = dormsById[String(rm.dormId)] || {};
+      const agg = byRoom[String(rm.id)] || { regs: [], events: new Set(), people: 0 };
+      const evList = Array.from(agg.events).sort().join(" | ");
+      return [
+        dorm.type || "",
+        _excelSafe(dorm.name || ""),
+        String(dorm.id || ""),
+        String(rm.id || ""),
+        _excelSafe(rm.name || ""),
+        _safeNum(rm.beds, 0),
+        agg.regs.length,
+        _safeNum(agg.people, 0),
+        _excelSafe(evList),
+      ];
+    }));
+
+    const wsRooms = XLSX.utils.aoa_to_sheet(roomRows);
+    wsRooms["!cols"] = [{wch:12},{wch:24},{wch:10},{wch:10},{wch:12},{wch:8},{wch:22},{wch:24},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, wsRooms, "Accommodation_Rooms");
+
+    // ---------- Sheet: Accommodation_Assignments ----------
+    const assignHeader = ["Event Title","Event ID","Participant Name","Email","People Count","Dorm Type","Dorm Name","Room Name","Room Beds","Status"];
+    const assignments = _safeArr(payload.registrations)
+      .filter(r => r.status === "Approved" && !!r.roomId)
+      .slice()
+      .sort(_sortByEvent(index.order, r => String(r.eventId || ""), r => r.fullName));
+
+    const assignRows = [assignHeader].concat(assignments.map(r => {
+      const room = roomsById[String(r.roomId)] || {};
+      const dorm = dormsById[String(room.dormId)] || {};
+      return [
+        _excelSafe(r.eventTitle || index.byId[String(r.eventId || "")]?.title || ""),
+        String(r.eventId || ""),
+        _excelSafe(r.fullName || ""),
+        _excelSafe(r.userEmail || ""),
+        _safeNum(r.participantsCount, 1),
+        dorm.type || "",
+        _excelSafe(dorm.name || ""),
+        _excelSafe(room.name || ""),
+        _safeNum(room.beds, 0),
+        r.status || ""
+      ];
+    }));
+
+    const wsAssign = XLSX.utils.aoa_to_sheet(assignRows);
+    wsAssign["!cols"] = [{wch:40},{wch:10},{wch:26},{wch:28},{wch:14},{wch:12},{wch:24},{wch:12},{wch:10},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, wsAssign, "Accommodation_Assign");
+
+    // ---------- Sheet: Attendance_Logs ----------
+    const attHeader = ["Event Title","Event ID","Participant","Room","Scanned At","Period"];
+    const logsAll = _safeArr(payload.logs).slice();
+    logsAll.sort(_sortByEvent(index.order, l => _resolveEventIdFromLoose(l.event_id || l.eventId, l.event_title || l.eventTitle, index), l => l.scanned_at || l.scannedAt || ""));
+
+    const attRows = [attHeader].concat(logsAll.map(l => {
+      const evId = _resolveEventIdFromLoose(l.event_id || l.eventId, l.event_title || l.eventTitle, index) || "";
+      const evTitle = index.byId[evId]?.title || l.event_title || l.eventTitle || "";
+      const ts = l.scanned_at || l.scannedAt || "";
+      return [
+        _excelSafe(evTitle),
+        evId,
+        _excelSafe(l.participant_name || l.participantName || ""),
+        _excelSafe(l.room_name || l.roomName || ""),
+        _isoOrEmpty(ts) || _safeStr(ts),
+        _periodOf(ts),
+      ];
+    }));
+
+    const wsAtt = XLSX.utils.aoa_to_sheet(attRows);
+    wsAtt["!cols"] = [{wch:40},{wch:10},{wch:26},{wch:18},{wch:24},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, wsAtt, "Attendance_Logs");
+
+    // ---------- Sheet: Attendance_Summary ----------
+    const attSumHeader = ["Event Title","Event ID","Approved (regs)","Attendance Unique","Attendance Coverage vs Approved (regs)","Total Scans","Morning Scans","Afternoon Scans"];
+    const attSumRows = [attSumHeader];
+    nlpItems.forEach(item => {
+      const m = item.metrics;
+      attSumRows.push([
+        _excelSafe(m.eventTitle), m.eventId, m.approvedRegs, m.uniqueCount, m.attendanceCoverageVsApprovedRegs, m.scansTotal, m.morningScans, m.afternoonScans
+      ]);
+    });
+    const wsAttSum = XLSX.utils.aoa_to_sheet(attSumRows);
+    wsAttSum["!cols"] = [{wch:40},{wch:10},{wch:14},{wch:18},{wch:26},{wch:12},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, wsAttSum, "Attendance_Summary");
+
+    // ---------- Sheet: Submissions ----------
+    const subHeader = ["Event Title","Event ID","Submission ID","Paper Title","Author Email","Status","File Path","Created At"];
+    const subsAll = _safeArr(payload.submissions).slice();
+    subsAll.sort(_sortByEvent(index.order, s => _resolveEventIdFromLoose(s.event_id || s.eventId, s.event_title || s.eventTitle, index), s => s.title || ""));
+
+    const subRows = [subHeader].concat(subsAll.map(s => {
+      const evId = _resolveEventIdFromLoose(s.event_id || s.eventId, s.event_title || s.eventTitle, index) || "";
+      const evTitle = index.byId[evId]?.title || s.event_title || s.eventTitle || "";
+      return [
+        _excelSafe(evTitle),
+        evId,
+        String(s.id || ""),
+        _excelSafe(s.title || ""),
+        _excelSafe(s.user_email || s.userEmail || ""),
+        _excelSafe(s.status || ""),
+        _excelSafe(s.file_path || s.filePath || ""),
+        _isoOrEmpty(s.created_at || s.createdAt),
+      ];
+    }));
+    const wsSubs = XLSX.utils.aoa_to_sheet(subRows);
+    wsSubs["!cols"] = [{wch:40},{wch:10},{wch:14},{wch:50},{wch:28},{wch:16},{wch:50},{wch:24}];
+    XLSX.utils.book_append_sheet(wb, wsSubs, "Submissions");
+
+    // ---------- Sheet: Portals ----------
+    const portalHeader = ["Event Title","Event ID","Portal ID","Portal Name","Created At"];
+    const portalsAll = _safeArr(payload.portals).slice();
+    portalsAll.sort(_sortByEvent(index.order, p => _resolveEventIdFromLoose(p.eventId, p.eventTitle, index), p => p.name || ""));
+
+    const portalRows = [portalHeader].concat(portalsAll.map(p => {
+      const evId = _resolveEventIdFromLoose(p.eventId, p.eventTitle, index) || "";
+      const evTitle = index.byId[evId]?.title || p.eventTitle || "";
+      return [
+        _excelSafe(evTitle),
+        evId,
+        _excelSafe(p.id || ""),
+        _excelSafe(p.name || ""),
+        _isoOrEmpty(p.createdAt || p.created_at),
+      ];
+    }));
+    const wsPortals = XLSX.utils.aoa_to_sheet(portalRows);
+    wsPortals["!cols"] = [{wch:40},{wch:10},{wch:24},{wch:28},{wch:24}];
+    XLSX.utils.book_append_sheet(wb, wsPortals, "Portals");
+
+    // ---------- Sheet: NLP_Report ----------
+    const nlpHeader = ["Event Title","Event ID","Report (auto-generated)"];
+    const nlpRows = [nlpHeader].concat(nlpItems.map(it => [
+      _excelSafe(it.eventTitle),
+      it.eventId,
+      _excelSafe(it.reportText),
+    ]));
+    const wsNlp = XLSX.utils.aoa_to_sheet(nlpRows);
+    wsNlp["!cols"] = [{wch:40},{wch:10},{wch:120}];
+    XLSX.utils.book_append_sheet(wb, wsNlp, "NLP_Report");
+
+    return wb;
+  }
+
+  // ==========================================
   // MAIN COMPONENT
   // ==========================================
   function AdminDashboard(props) {
@@ -1134,7 +1678,6 @@
     const [batchStatus, setBatchStatus] = useState({ state: 'idle', processed: 0, total: 0, errors: 0 });
     const [previewTarget, setPreviewTarget] = useState(null);
     
-    // NEW: State for Revoke Modal
     const [revokeTarget, setRevokeTarget] = useState(null);
 
     const loadData = () => {
@@ -1175,9 +1718,43 @@
         };
     }, [section]);
 
-    const handleExport = (stats) => {
-      const rows = [['Event', 'Participants', 'Pending', 'Approved', 'Start Date'], ...stats.map(ev => [ev.title, ev.participants, ev.pending, ev.approved, ev.startDate])];
-      downloadBlob({ content: rows.map(e => e.join(",")).join("\n"), mime: 'text/csv', filename: `export_${new Date().toISOString().slice(0, 10)}.csv` });
+    // NEW EXPORT FUNCTION PLACED CORRECTLY
+    const handleExport = async (stats) => {
+      try {
+        if (!window.XLSX) {
+          alert("Excel export requires SheetJS (XLSX). Please include xlsx.full.min.js in your index.html.");
+          return;
+        }
+
+        const submissions = await fetch(`${API_BASE}/submissions`, { headers: getAuthHeaders() })
+          .then(r => r.ok ? r.json() : [])
+          .then(d => Array.isArray(d) ? d : [])
+          .catch(() => []);
+
+        const payload = {
+          generatedAt: new Date().toISOString(),
+          events,
+          registrations,
+          dorms,
+          rooms,
+          portals,
+          logs,
+          submissions
+        };
+
+        const wb = buildDashboardExcelWorkbook(payload);
+        const out = window.XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+        const stamp = new Date().toISOString().slice(0, 10);
+        downloadBlob({
+          content: out,
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          filename: `conexus_report_${stamp}.xlsx`
+        });
+      } catch (err) {
+        console.error("Excel export failed:", err);
+        alert("Export failed. Open the console for details.");
+      }
     };
 
     const saveEvent = async (e) => {
@@ -1410,7 +1987,7 @@
 
         </div>
 
-        {/* 3. Main Content Area (Now takes full width of the screen) */}
+        {/* 3. Main Content Area */}
         <main className="min-w-0 animate-fade-in-up">
             {section === "dashboard" && <DashboardTab events={events} registrations={registrations} onCreateEvent={() => { setEditEventId(null); setEventForm({ title: "", description: "", startDate: "", endDate: "", location: "", featured: false }); setCreateEventOpen(true); }} onExport={handleExport} onEditEvent={(ev) => { setEditEventId(ev.id); setEventForm({ ...ev }); setCreateEventOpen(true); }} onDeleteEvent={handleDeleteEvent} />}
             {section === "accommodation" && <AccommodationTab dorms={dorms} rooms={rooms} registrations={registrations} onAddDorm={handleAddDorm} onDeleteDorm={handleDeleteDorm} onAddRoom={handleAddRoom} onDeleteRoom={handleDeleteRoom} />}
