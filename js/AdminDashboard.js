@@ -2078,7 +2078,7 @@ Notes / Flags
         {/* Modals */}
         <CreateEventModal isOpen={createEventOpen} isSaving={createEventSaving} editId={editEventId} formData={eventForm} onChange={(e) => { const { name, value, type, checked } = e.target; setEventForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); }} onClose={() => setCreateEventOpen(false)} onSave={saveEvent} />
         <NfcModal isOpen={nfcModalOpen} targetReg={nfcTargetReg} onClose={() => setNfcModalOpen(false)} onSubmit={handleNfcSubmit} />
-        <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, assignTargetReg.status, id)} />
+        <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, "Approved", id)} />
         <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onPrint={issueCertNow} />
         <RegistrationPreviewModal reg={previewTarget} onClose={() => setPreviewTarget(null)} />
         
