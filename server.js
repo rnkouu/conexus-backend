@@ -244,27 +244,57 @@ app.post('/api/register', verifyToken, upload.single('valid_id'), (req, res) => 
         catch (e) { companions = []; }
     }
 
-    db.beginTransaction((err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        db.query("SELECT id FROM users WHERE email = ?", [user_email], (err, users) => {
-            if (err || users.length === 0) return db.rollback(() => res.status(404).json({ message: 'User not found' }));
+    // FIX: Grab a specific connection from the pool for the transaction
+    db.getConnection((err, connection) => {
+        if (err) return res.status(500).json({ error: "Database connection error" });
+
+        connection.beginTransaction((err) => {
+            if (err) {
+                connection.release();
+                return res.status(500).json({ error: err.message });
+            }
             
-            const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, created_at) VALUES (?, ?, 'For approval', ?, NOW())";
-            db.query(sqlReg, [users[0].id, event_id, valid_id_path], (err, result) => {
-                if (err) return db.rollback(() => res.status(500).json({ error: err.message }));
-                
-                const regId = result.insertId;
-                if (companions && Array.isArray(companions) && companions.length > 0) {
-                    const compSql = "INSERT INTO registration_companions (registration_id, name, relation, phone, email) VALUES ?";
-                    const values = companions.map(c => [regId, c.name, c.relation, c.phone, c.email]);
-                    
-                    db.query(compSql, [values], (err) => {
-                        if (err) return db.rollback(() => res.status(500).json({ error: "Companion insert failed" }));
-                        db.commit(() => res.json({ success: true, regId }));
+            connection.query("SELECT id FROM users WHERE email = ?", [user_email], (err, users) => {
+                if (err || users.length === 0) {
+                    return connection.rollback(() => {
+                        connection.release();
+                        res.status(404).json({ message: 'User not found' });
                     });
-                } else {
-                    db.commit(() => res.json({ success: true, regId }));
                 }
+                
+                const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, created_at) VALUES (?, ?, 'For approval', ?, NOW())";
+                connection.query(sqlReg, [users[0].id, event_id, valid_id_path], (err, result) => {
+                    if (err) {
+                        return connection.rollback(() => {
+                            connection.release();
+                            res.status(500).json({ error: err.message });
+                        });
+                    }
+                    
+                    const regId = result.insertId;
+                    if (companions && Array.isArray(companions) && companions.length > 0) {
+                        const compSql = "INSERT INTO registration_companions (registration_id, name, relation, phone, email) VALUES ?";
+                        const values = companions.map(c => [regId, c.name, c.relation, c.phone, c.email]);
+                        
+                        connection.query(compSql, [values], (err) => {
+                            if (err) {
+                                return connection.rollback(() => {
+                                    connection.release();
+                                    res.status(500).json({ error: "Companion insert failed" });
+                                });
+                            }
+                            connection.commit(() => {
+                                connection.release();
+                                res.json({ success: true, regId });
+                            });
+                        });
+                    } else {
+                        connection.commit(() => {
+                            connection.release();
+                            res.json({ success: true, regId });
+                        });
+                    }
+                });
             });
         });
     });
