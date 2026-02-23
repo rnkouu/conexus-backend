@@ -375,6 +375,95 @@
     );
   }
 
+  function CreateEventModal({ isOpen, isSaving, editId, formData, onChange, onClose, onSave }) {
+    if (!isOpen) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md transition-opacity" onClick={onClose}></div>
+        <div className="relative bg-white rounded-[40px] shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+          
+          <div className="px-10 pt-10 pb-6 shrink-0">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[11px] font-black text-brand uppercase tracking-[0.2em] mb-2">Conexus Platform</p>
+                <h3 className="text-3xl font-extrabold text-gray-900 font-display">{editId ? "Edit Event" : "Add a new event card"}</h3>
+              </div>
+              <button onClick={onClose} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-all">✕</button>
+            </div>
+          </div>
+
+          <div className="px-10 py-4 overflow-y-auto scrollbar-hide">
+            <form id="createEventForm" onSubmit={onSave} className="space-y-7 pb-6">
+              
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Event Name</label>
+                <input type="text" name="title" required className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 text-gray-800 focus:bg-white focus:border-brand transition-all text-lg outline-none" value={formData.title} onChange={onChange} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Event Type</label>
+                    <select name="type" value={formData.type || "Conference"} onChange={onChange} className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 text-gray-800 focus:bg-white focus:border-brand outline-none appearance-none">
+                        <option value="Conference">Conference</option>
+                        <option value="Forum">Forum</option>
+                        <option value="Colloquium">Colloquium</option>
+                        <option value="Summit">Summit</option>
+                        <option value="Workshop">Workshop</option>
+                    </select>
+                 </div>
+                 <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Mode</label>
+                    <select name="mode" value={formData.mode || "On-site"} onChange={onChange} className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 text-gray-800 focus:bg-white focus:border-brand outline-none appearance-none">
+                        <option value="On-site">On-site</option>
+                        <option value="Virtual">Virtual</option>
+                        <option value="Hybrid">Hybrid</option>
+                    </select>
+                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Event Description</label>
+                <textarea name="description" rows="4" className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 text-gray-800 focus:bg-white focus:border-brand transition-all outline-none resize-none" value={formData.description} onChange={onChange}></textarea>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Start Date</label>
+                    <input type="date" name="startDate" required className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 outline-none" value={formData.startDate} onChange={onChange} />
+                </div>
+                <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">End Date</label>
+                    <input type="date" name="endDate" required className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 outline-none" value={formData.endDate} onChange={onChange} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Location</label>
+                <input type="text" name="location" required className="w-full p-4 rounded-2xl border-2 border-gray-100 bg-gray-50 outline-none" value={formData.location} onChange={onChange} />
+              </div>
+
+              <div className="flex items-center justify-between p-6 rounded-3xl bg-gray-50 border-2 border-gray-100">
+                <div><div className="text-lg font-bold text-gray-900">Featured event</div></div>
+                <label className="flex items-center gap-4 cursor-pointer group">
+                    <input type="checkbox" name="featured" checked={formData.featured} onChange={onChange} className="w-7 h-7 rounded-lg border-2 border-gray-300 text-brand cursor-pointer" />
+                    <span className="text-base font-bold text-gray-700 group-hover:text-brand transition-colors">Featured</span>
+                </label>
+              </div>
+            </form>
+          </div>
+
+          <div className="px-10 py-8 bg-gray-50 border-t border-gray-100 flex justify-end gap-4 shrink-0">
+            <button type="button" onClick={onClose} className="px-8 py-3 rounded-2xl bg-white border-2 border-gray-200 text-gray-600 font-bold hover:bg-gray-100 transition-all">Cancel</button>
+            <button type="submit" form="createEventForm" disabled={isSaving} className="px-10 py-3 rounded-2xl bg-gradient-to-r from-brand to-brandLight text-white font-bold shadow-xl disabled:opacity-50 transition-all">
+                {isSaving ? "Saving..." : (editId ? "Update Event" : "Save Event")}
+            </button>
+          </div>
+        </div>
+      </div>, 
+      document.body
+    );
+  }
+
   function AssignRoomModal({ isOpen, targetReg, dorms, rooms, registrations, onClose, onAssign }) {
     if (!isOpen) return null;
     const [flow, setFlow] = useState({ type: null, locationId: null, roomId: null });
