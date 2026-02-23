@@ -240,7 +240,14 @@
 
   function ModalWrapper({ children, onClose }) {
     if (!createPortal) return null;
-    return createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-fade-in-up">{children}</div></div>, document.body);
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-fade-in-up" onClick={e => e.stopPropagation()}>
+          {children}
+        </div>
+      </div>, 
+      document.body
+    );
   }
 
   function RevokeModal({ isOpen, onClose, onConfirm, targetName, isPending }) {
@@ -253,8 +260,8 @@
     };
 
     return createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up p-8">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up p-8" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-extrabold text-gray-900 mb-2">
                 {isPending ? "Reject Registration" : "Revoke Registration"}
             </h3>
@@ -350,9 +357,10 @@
         setScannedId(""); 
     };
 
+    // The key={Date.now()} forces Babel to treat this as dynamic
     return createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
+      <div key={isOpen ? 'open' : 'closed'} className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+          <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center" onClick={e => e.stopPropagation()}>
               <div className="mb-4 text-4xl">📡</div>
               <h3 className="text-xl font-bold mb-2">Scan Card Now</h3>
               <p className="text-sm text-gray-600 mb-6">Assigning to: <strong className="text-brand">{targetReg?.fullName}</strong></p>
@@ -469,7 +477,26 @@
     const [flow, setFlow] = useState({ type: null, locationId: null, roomId: null });
     const relevantDorms = dorms.filter(d => !flow.type || d.type === flow.type);
     const relevantRooms = rooms.filter(r => String(r.dormId) === String(flow.locationId));
-    return createPortal(<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"><div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"><div className="p-6 border-b border-gray-100 flex justify-between items-center"><div><h3 className="text-xl font-bold text-gray-900">Assign Room</h3><p className="text-sm text-gray-500">For {targetReg?.fullName}</p></div><button onClick={onClose} className="text-gray-400 hover:text-gray-800">✕</button></div><div className="flex-1 overflow-y-auto p-8 space-y-8"><div><p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">1. Select Housing Type</p><div className="flex gap-4">{['Dorm', 'Hotel'].map(t => (<button key={t} onClick={() => setFlow({ type: t, locationId: null, roomId: null })} className={`flex-1 py-4 rounded-2xl border-2 text-sm font-bold transition-all ${flow.type === t ? 'border-brand bg-blue-50 text-brand' : 'border-gray-100 bg-white text-gray-600'}`}>{t === 'Dorm' ? '🏫 Dormitory' : '🏨 Hotel'}</button>))}</div></div>{flow.type && (<div><p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">2. Select Location</p><div className="grid grid-cols-2 gap-3">{relevantDorms.map(d => (<button key={d.id} onClick={() => setFlow({ ...flow, locationId: d.id, roomId: null })} className={`py-3 px-4 rounded-xl border-2 text-left text-sm font-bold transition-all ${flow.locationId === d.id ? 'border-brand bg-blue-50 text-brand' : 'border-gray-100 bg-white text-gray-600'}`}>{d.name}</button>))}</div></div>)}{flow.locationId && (<div><p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">3. Select Room</p><div className="grid grid-cols-3 gap-3">{relevantRooms.map(r => {const occupiedCount = registrations.filter(reg => String(reg.roomId) === String(r.id) && reg.status === "Approved").length;const isFull = occupiedCount >= r.beds;return (<button key={r.id} disabled={isFull} onClick={() => setFlow({ ...flow, roomId: r.id })} className={`p-3 rounded-xl border-2 text-left transition-all ${flow.roomId === r.id ? 'border-brand bg-brand text-white' : isFull ? 'border-gray-100 bg-gray-50 text-gray-300' : 'border-gray-100 bg-white text-gray-700'}`}><div className="text-sm font-bold">Rm {r.name}</div><div className={`text-xs ${flow.roomId === r.id ? 'text-blue-200' : isFull ? 'text-red-300' : 'text-emerald-600'}`}>{occupiedCount}/{r.beds} filled</div></button>)})}</div></div>)}</div><div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3"><button onClick={onClose} className="px-6 py-3 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-200">Cancel</button><button disabled={!flow.roomId} onClick={() => onAssign(flow.roomId)} className="px-8 py-3 rounded-xl bg-brand text-white text-sm font-bold shadow-lg disabled:opacity-50">Confirm</button></div></div></div>, document.body);
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+            <div><h3 className="text-xl font-bold text-gray-900">Assign Room</h3><p className="text-sm text-gray-500">For {targetReg?.fullName}</p></div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-800">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-8 space-y-8">
+            <div><p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">1. Select Housing Type</p><div className="flex gap-4">{['Dorm', 'Hotel'].map(t => (<button key={t} onClick={() => setFlow({ type: t, locationId: null, roomId: null })} className={`flex-1 py-4 rounded-2xl border-2 text-sm font-bold transition-all ${flow.type === t ? 'border-brand bg-blue-50 text-brand' : 'border-gray-100 bg-white text-gray-600'}`}>{t === 'Dorm' ? '🏫 Dormitory' : '🏨 Hotel'}</button>))}</div></div>
+            {flow.type && (<div><p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">2. Select Location</p><div className="grid grid-cols-2 gap-3">{relevantDorms.map(d => (<button key={d.id} onClick={() => setFlow({ ...flow, locationId: d.id, roomId: null })} className={`py-3 px-4 rounded-xl border-2 text-left text-sm font-bold transition-all ${flow.locationId === d.id ? 'border-brand bg-blue-50 text-brand' : 'border-gray-100 bg-white text-gray-600'}`}>{d.name}</button>))}</div></div>)}
+            {flow.locationId && (<div><p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">3. Select Room</p><div className="grid grid-cols-3 gap-3">{relevantRooms.map(r => {const occupiedCount = registrations.filter(reg => String(reg.roomId) === String(r.id) && reg.status === "Approved").length;const isFull = occupiedCount >= r.beds;return (<button key={r.id} disabled={isFull} onClick={() => setFlow({ ...flow, roomId: r.id })} className={`p-3 rounded-xl border-2 text-left transition-all ${flow.roomId === r.id ? 'border-brand bg-brand text-white' : isFull ? 'border-gray-100 bg-gray-50 text-gray-300' : 'border-gray-100 bg-white text-gray-700'}`}><div className="text-sm font-bold">Rm {r.name}</div><div className={`text-xs ${flow.roomId === r.id ? 'text-blue-200' : isFull ? 'text-red-300' : 'text-emerald-600'}`}>{occupiedCount}/{r.beds} filled</div></button>)})}</div></div>)}
+          </div>
+          <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+            <button onClick={onClose} className="px-6 py-3 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-200">Cancel</button>
+            <button disabled={!flow.roomId} onClick={() => onAssign(flow.roomId)} className="px-8 py-3 rounded-xl bg-brand text-white text-sm font-bold shadow-lg disabled:opacity-50">Confirm</button>
+          </div>
+        </div>
+      </div>, 
+      document.body
+    );
   }
 
   function CertificateDrawer({ isOpen, target, html, isSending, status, onClose, onEmail, onPrint }) {
@@ -2051,7 +2078,7 @@ Notes / Flags
         {/* Modals */}
         <CreateEventModal isOpen={createEventOpen} isSaving={createEventSaving} editId={editEventId} formData={eventForm} onChange={(e) => { const { name, value, type, checked } = e.target; setEventForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); }} onClose={() => setCreateEventOpen(false)} onSave={saveEvent} />
         <NfcModal isOpen={nfcModalOpen} targetReg={nfcTargetReg} onClose={() => setNfcModalOpen(false)} onSubmit={handleNfcSubmit} />
-        <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, "Approved", id)} />
+        <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, assignTargetReg.status, id)} />
         <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onPrint={issueCertNow} />
         <RegistrationPreviewModal reg={previewTarget} onClose={() => setPreviewTarget(null)} />
         
