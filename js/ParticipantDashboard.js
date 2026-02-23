@@ -303,7 +303,6 @@
   const getAuthHeaders = () => {
     const token = localStorage.getItem('conexus_token');
     return {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     };
   };
@@ -478,6 +477,8 @@
           const response = await fetch('https://conexus-backend-production.up.railway.app/api/register', {
               method: 'POST',
               headers: {
+                  // REMOVE Content-Type completely! 
+                  // Let the browser set it automatically for FormData
                   'Authorization': `Bearer ${token}` 
               },
               body: payload, 
