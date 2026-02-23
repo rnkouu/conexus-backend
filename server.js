@@ -54,18 +54,26 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// --- DATABASE CONNECTION ---
-const db = mysql.createConnection({
+// --- DATABASE CONNECTION (POOL) ---
+const db = mysql.createPool({
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD, 
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-db.connect((err) => {
-    if (err) { console.error('❌ Database connection failed:', err); return; }
-    console.log('✅ Connected to MySQL Database');
+// Test the pool connection
+db.getConnection((err, conn) => {
+    if (err) { 
+        console.error('❌ Database connection failed:', err); 
+    } else {
+        console.log('✅ Connected to MySQL Database (Pool)');
+        conn.release(); // Release it back to the pool
+    }
 });
 
 // ==========================================
