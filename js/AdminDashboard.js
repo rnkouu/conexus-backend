@@ -250,6 +250,159 @@
     );
   }
 
+  // --- NEW: AI Chart Image Generator ---
+  const generateChartImage = async (type, data, labels, title) => {
+    return new Promise((resolve) => {
+      if (!window.Chart) {
+          resolve(null);
+          return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 250;
+      canvas.style.position = 'absolute';
+      canvas.style.left = '-9999px';
+      document.body.appendChild(canvas);
+
+      const ctx = canvas.getContext('2d');
+      new window.Chart(ctx, {
+        type: type,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: title,
+            data: data,
+            backgroundColor: ['#002147', '#f5c518', '#ef4444', '#10b981', '#6366f1'],
+          }]
+        },
+        options: {
+          animation: false,
+          responsive: false,
+          plugins: { title: { display: true, text: title } }
+        }
+      });
+
+      setTimeout(() => {
+        const imgUrl = canvas.toDataURL('image/png');
+        document.body.removeChild(canvas);
+        resolve(imgUrl);
+      }, 150);
+    });
+  };
+
+  // --- NEW: Editable AI Report Modal ---
+  function EditableAIReportModal({ isOpen, onClose, reportItems }) {
+      if (!isOpen) return null;
+      
+      const [editedTexts, setEditedTexts] = useState({});
+
+      useEffect(() => {
+          if (isOpen && reportItems) {
+              const init = {};
+              reportItems.forEach(item => {
+                  init[item.eventId] = item.reportText;
+              });
+              setEditedTexts(init);
+          }
+      }, [isOpen, reportItems]);
+
+      const handleDownloadPDF = () => {
+          if (!window.jspdf) {
+              alert("PDF library not loaded. Please ensure jsPDF is in your HTML.");
+              return;
+          }
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+          
+          doc.setFontSize(22);
+          doc.setTextColor(0, 33, 71);
+          doc.text("Conexus AI Intelligence Report", 10, 20);
+          doc.setFontSize(10);
+          doc.setTextColor(100);
+          doc.text(`Generated on: ${new Date().toLocaleString()}`, 10, 28);
+
+          let yOffset = 40;
+
+          reportItems.forEach((item) => {
+              doc.setFontSize(14);
+              doc.setTextColor(0, 33, 71);
+              doc.text(`Event: ${item.eventTitle}`, 10, yOffset);
+              
+              doc.setFontSize(10);
+              doc.setTextColor(50);
+              const currentText = editedTexts[item.eventId] || "";
+              const splitText = doc.splitTextToSize(currentText, 180);
+              doc.text(splitText, 10, yOffset + 10);
+              
+              yOffset += (splitText.length * 5) + 20;
+
+              if (item.charts.regImg) doc.addImage(item.charts.regImg, 'PNG', 10, yOffset, 80, 50);
+              if (item.charts.attImg) doc.addImage(item.charts.attImg, 'PNG', 100, yOffset, 80, 50);
+
+              yOffset += 65;
+
+              if (yOffset > 250) {
+                  doc.addPage();
+                  yOffset = 20;
+              }
+          });
+
+          doc.save(`Conexus_AI_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+      };
+
+      return createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+                  <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                      <div>
+                          <h3 className="text-2xl font-black text-brand flex items-center gap-2"><span>🤖</span> AI Event Insights</h3>
+                          <p className="text-sm text-gray-500">Review and edit your narrative before exporting.</p>
+                      </div>
+                      <button onClick={onClose} className="p-2 bg-white rounded-full hover:bg-gray-100 transition-colors">✕</button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-gray-50/50">
+                      {reportItems && reportItems.length === 0 && <p className="text-center text-gray-400">No events found to report on.</p>}
+                      {reportItems && reportItems.map(item => (
+                          <div key={item.eventId} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                              <h4 className="text-lg font-bold text-gray-800 mb-4">{item.eventTitle}</h4>
+                              
+                              <textarea
+                                  className="w-full h-64 p-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:border-brand outline-none mb-6 font-mono resize-y"
+                                  value={editedTexts[item.eventId] || ""}
+                                  onChange={(e) => setEditedTexts({...editedTexts, [item.eventId]: e.target.value})}
+                              />
+                              
+                              <div className="flex flex-wrap gap-4">
+                                  {item.charts.regImg && (
+                                      <div className="border border-gray-100 rounded-xl p-2 bg-gray-50">
+                                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Registrations</p>
+                                          <img src={item.charts.regImg} alt="Registration Chart" className="w-64 object-contain" />
+                                      </div>
+                                  )}
+                                  {item.charts.attImg && (
+                                      <div className="border border-gray-100 rounded-xl p-2 bg-gray-50">
+                                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Attendance</p>
+                                          <img src={item.charts.attImg} alt="Attendance Chart" className="w-64 object-contain" />
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+
+                  <div className="px-8 py-5 border-t border-gray-100 bg-white flex justify-end gap-4">
+                      <button onClick={onClose} className="px-6 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50">Discard</button>
+                      <button onClick={handleDownloadPDF} className="px-8 py-3 rounded-xl grad-btn text-white text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2">
+                          📥 Download PDF
+                      </button>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      );
+  }
+
   function RevokeModal({ isOpen, onClose, onConfirm, targetName, isPending }) {
     if (!isOpen) return null;
     const [note, setNote] = useState("");
@@ -357,7 +510,6 @@
         setScannedId(""); 
     };
 
-    // The key={Date.now()} forces Babel to treat this as dynamic
     return createPortal(
       <div key={isOpen ? 'open' : 'closed'} className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center" onClick={e => e.stopPropagation()}>
@@ -716,14 +868,33 @@
     );
   };
 
-  const DashboardTab = ({ events, registrations, onCreateEvent, onExport, onEditEvent, onDeleteEvent }) => {
+  // --- UPDATED: Dashboard Tab with New AI Button ---
+  const DashboardTab = ({ events, registrations, onCreateEvent, onExport, onEditEvent, onDeleteEvent, onGenerateAIReport, isGeneratingReport }) => {
     const eventStats = events.map(ev => {
       const regs = registrations.filter(r => r.eventId === ev.id);
       return { ...ev, participants: regs.reduce((sum, r) => sum + (r.participantsCount || 1), 0), pending: regs.filter(r => r.status === "For approval").length };
     });
     const maxParticipants = eventStats.length ? Math.max(1, ...eventStats.map(e => e.participants)) : 1;
     return (
-      <div className="space-y-8"><div className="flex items-start justify-between gap-4"><div><h2 className="font-display text-3xl font-bold mb-2">Admin dashboard</h2><p className="text-base text-gray-500">Snapshot of events and registrations.</p></div><div className="flex items-center gap-4"><button onClick={onCreateEvent} className="px-6 py-3 rounded-full bg-brand text-white text-sm font-semibold shadow-lg hover:bg-brandLight transition-all">Create Event</button><button onClick={() => onExport(eventStats)} className="px-6 py-3 rounded-full bg-amber-500 text-white text-sm font-semibold shadow-lg hover:bg-amber-600 transition-all">Export CSV</button></div></div>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div>
+                <h2 className="font-display text-3xl font-bold mb-2">Admin dashboard</h2>
+                <p className="text-base text-gray-500">Snapshot of events and registrations.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+                <button onClick={onCreateEvent} className="px-6 py-3 rounded-full bg-brand text-white text-sm font-semibold shadow-lg hover:bg-brandLight transition-all">Create Event</button>
+                <button onClick={() => onExport(eventStats)} className="px-6 py-3 rounded-full bg-amber-500 text-white text-sm font-semibold shadow-lg hover:bg-amber-600 transition-all">Export CSV</button>
+                {/* NEW AI REPORT BUTTON */}
+                <button 
+                    onClick={onGenerateAIReport} 
+                    disabled={isGeneratingReport}
+                    className="px-6 py-3 rounded-full bg-indigo-500 text-white text-sm font-semibold shadow-lg hover:bg-indigo-600 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                    <span>🤖</span> {isGeneratingReport ? "Analyzing..." : "AI Report"}
+                </button>
+            </div>
+        </div>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2"><div className="hover-card rounded-3xl bg-white border border-gray-100 p-7 shadow-sm"><p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Active events</p><p className="text-4xl font-extrabold text-gray-800">{events.length}</p></div><div className="hover-card rounded-3xl bg-white border border-gray-100 p-7 shadow-sm"><p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Total registrations</p><p className="text-4xl font-extrabold text-gray-800">{registrations.length}</p></div></div>
       <div className="rounded-3xl bg-white border border-gray-100 p-8 shadow-sm"><div className="flex items-center justify-between mb-8"><h3 className="font-bold text-xl text-gray-800">Participants per event</h3></div>{eventStats.length === 0 ? <div className="text-center py-12 text-gray-400">No events yet.</div> : (<div className="space-y-8">{eventStats.map(ev => {const pct = maxParticipants ? Math.round((ev.participants / maxParticipants) * 100) : 0;return (<div key={ev.id} className="group"><div className="flex items-center justify-between mb-3"><span className="text-base font-bold text-gray-700 truncate max-w-md">{ev.title}</span><div className="flex items-center gap-4"><span className="text-sm text-gray-400 font-medium">{ev.participants} pax</span><button onClick={() => onEditEvent(ev)} className="px-4 py-1.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">Edit</button><button onClick={() => onDeleteEvent(ev.id)} className="px-4 py-1.5 rounded-xl border border-red-100 text-sm font-semibold text-red-500 hover:bg-red-50">Delete</button></div></div><div className="h-3 rounded-full bg-gray-100 overflow-hidden"><div className="h-full bg-gradient-to-r from-brand to-accent1 rounded-full transition-all duration-700" style={{ width: Math.max(2, pct) + "%" }} /></div></div>);})}</div>)}</div></div>
     );
@@ -1743,6 +1914,11 @@ Notes / Flags
     
     const [revokeTarget, setRevokeTarget] = useState(null);
 
+    // AI REPORT STATE
+    const [aiReportModalOpen, setAiReportModalOpen] = useState(false);
+    const [aiReportItems, setAiReportItems] = useState([]);
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
     const loadData = () => {
       Promise.all([
         fetch(`${API_BASE}/events`).then(r => r.ok ? r.json() : []).catch(() => []),
@@ -1781,7 +1957,7 @@ Notes / Flags
         };
     }, [section]);
 
-    // NEW EXPORT FUNCTION PLACED CORRECTLY
+    // EXISTING EXPORT FUNCTION
     const handleExport = async (stats) => {
       try {
         if (!window.XLSX) {
@@ -1818,6 +1994,46 @@ Notes / Flags
         console.error("Excel export failed:", err);
         alert("Export failed. Open the console for details.");
       }
+    };
+
+    // --- NEW: Handle Generate AI Report Flow ---
+    const handleGenerateAIReport = async () => {
+        setIsGeneratingReport(true);
+        try {
+            // 1. Fetch fresh submissions just like the excel export
+            const submissions = await fetch(`${API_BASE}/submissions`, { headers: getAuthHeaders() })
+                .then(r => r.ok ? r.json() : [])
+                .then(d => Array.isArray(d) ? d : [])
+                .catch(() => []);
+
+            const payload = { events, registrations, dorms, rooms, portals, logs, submissions };
+            
+            // 2. Get the base NLP text data
+            const nlpData = generateDashboardNlpReportPerEvent(payload);
+
+            // 3. Render charts for each event
+            const reportItemsWithCharts = [];
+            for (const item of nlpData) {
+                const regData = [item.metrics.approvedRegs, item.metrics.pendingRegs, item.metrics.rejectedRegs];
+                const attData = [item.metrics.morningScans, item.metrics.afternoonScans];
+                
+                const regImg = await generateChartImage('pie', regData, ['Approved', 'Pending', 'Rejected'], "Registration Status");
+                const attImg = await generateChartImage('bar', attData, ['Morning', 'Afternoon'], "Attendance Times");
+                
+                reportItemsWithCharts.push({
+                    ...item,
+                    charts: { regImg, attImg }
+                });
+            }
+
+            setAiReportItems(reportItemsWithCharts);
+            setAiReportModalOpen(true);
+        } catch (error) {
+            console.error(error);
+            alert("Failed to generate AI report.");
+        } finally {
+            setIsGeneratingReport(false);
+        }
     };
 
     const saveEvent = async (e) => {
@@ -2052,7 +2268,7 @@ Notes / Flags
 
         {/* 3. Main Content Area */}
         <main className="min-w-0 animate-fade-in-up">
-            {section === "dashboard" && <DashboardTab events={events} registrations={registrations} onCreateEvent={() => { setEditEventId(null); setEventForm({ title: "", description: "", startDate: "", endDate: "", location: "", featured: false }); setCreateEventOpen(true); }} onExport={handleExport} onEditEvent={(ev) => { setEditEventId(ev.id); setEventForm({ ...ev }); setCreateEventOpen(true); }} onDeleteEvent={handleDeleteEvent} />}
+            {section === "dashboard" && <DashboardTab events={events} registrations={registrations} onCreateEvent={() => { setEditEventId(null); setEventForm({ title: "", description: "", startDate: "", endDate: "", location: "", featured: false }); setCreateEventOpen(true); }} onExport={handleExport} onEditEvent={(ev) => { setEditEventId(ev.id); setEventForm({ ...ev }); setCreateEventOpen(true); }} onDeleteEvent={handleDeleteEvent} onGenerateAIReport={handleGenerateAIReport} isGeneratingReport={isGeneratingReport} />}
             {section === "accommodation" && <AccommodationTab dorms={dorms} rooms={rooms} registrations={registrations} onAddDorm={handleAddDorm} onDeleteDorm={handleDeleteDorm} onAddRoom={handleAddRoom} onDeleteRoom={handleDeleteRoom} />}
             {section === "registrations" && 
                 <RegistrationsTab 
@@ -2089,6 +2305,13 @@ Notes / Flags
             isPending={revokeTarget?.status === 'For approval'}
             onClose={() => setRevokeTarget(null)} 
             onConfirm={handleRevokeConfirm} 
+        />
+
+        {/* AI REPORT MODAL */}
+        <EditableAIReportModal 
+            isOpen={aiReportModalOpen} 
+            reportItems={aiReportItems} 
+            onClose={() => setAiReportModalOpen(false)} 
         />
       </section>
     );
