@@ -1108,13 +1108,12 @@ const [events, setEvents] = useState([]);
     } catch (err) { alert("Submission error."); }
   };
 
-  // SECURE: Attach token to loading user's previous submissions
- // SECURE: Attach token to loading user's previous submissions + Auto Refresh
+ // SECURE: Attach token to loading user's previous submissions + Auto Refresh
   useEffect(() => {
     async function load(u) {
       if (!u) return;
       const token = localStorage.getItem('conexus_token');
-      const res = await fetch(`${API_BASE}/submissions?email=${encodeURIComponent(u.email)}`, {
+      const res = await fetch(`${API_BASE_URL}/submissions?email=${encodeURIComponent(u.email)}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
