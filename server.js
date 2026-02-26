@@ -187,31 +187,46 @@ app.post('/api/attendance/scan', (req, res) => {
         }
 
         const roomName = portals[0].name || "Unknown";
-        const portalEventId = portals[0].event_id; // We need this to verify the correct event!
+        const portalEventId = portals[0].event_id;
 
-        // 2. Add 'AND r.event_id = ?' to ensure they are registered for THIS event
+        // 2. Find ALL registrations across all events for this NFC card or Email
         const sql = `
-            SELECT r.id, r.status, u.full_name 
+            SELECT r.id, r.event_id, r.status, u.full_name 
             FROM registrations r 
             JOIN users u ON r.user_id = u.id 
-            WHERE (r.nfc_card_id = ? OR u.email = ?) 
-            AND r.event_id = ? 
-            LIMIT 1
+            WHERE (r.nfc_card_id = ? OR u.email = ?)
         `;
         
-        db.query(sql, [input_code, input_code, portalEventId], (err, results) => {
-            // If results are 0, they are either not in the system OR not registered for this specific event
-            if(results.length === 0) return res.json({success: false, status: 'not_found'});
+        db.query(sql, [input_code, input_code], (err, results) => {
+            // If 0 results, the card doesn't exist in the database at all
+            if (err || results.length === 0) {
+                return res.json({success: false, status: 'not_found'});
+            }
             
-            const reg = results[0];
+            // 3. Card is recognized! See if they have a registration specifically for THIS event
+            const validReg = results.find(r => r.event_id === portalEventId);
             
-            if(reg.status !== 'Approved') return res.json({success: false, status: 'not_approved', name: reg.full_name});
+            if (!validReg) {
+                // Known person, but wrong event
+                return res.json({
+                    success: false, 
+                    status: 'wrong_event', 
+                    name: results[0].full_name // We return their name so the UI can greet them!
+                });
+            }
             
-            db.query("SELECT id FROM attendance_logs WHERE registration_id = ? AND scanned_at > (NOW() - INTERVAL 5 MINUTE)", [reg.id], (err, dups) => {
-                if(dups.length > 0) return res.json({success: false, status: 'repeat', name: reg.full_name});
+            // 4. They are registered for this event. Check approval status.
+            if (validReg.status !== 'Approved') {
+                return res.json({success: false, status: 'not_approved', name: validReg.full_name});
+            }
+            
+            // 5. Check for duplicate scans (within 5 minutes)
+            db.query("SELECT id FROM attendance_logs WHERE registration_id = ? AND scanned_at > (NOW() - INTERVAL 5 MINUTE)", [validReg.id], (err, dups) => {
+                if(dups.length > 0) return res.json({success: false, status: 'repeat', name: validReg.full_name});
                 
-                db.query("INSERT INTO attendance_logs (portal_id, room_name, registration_id, scanned_at) VALUES (?, ?, ?, NOW())", [portal_id, roomName, reg.id], () => {
-                    res.json({success: true, status: 'success', name: reg.full_name});
+                // 6. Log the attendance
+                db.query("INSERT INTO attendance_logs (portal_id, room_name, registration_id, scanned_at) VALUES (?, ?, ?, NOW())", [portal_id, roomName, validReg.id], () => {
+                    res.json({success: true, status: 'success', name: validReg.full_name});
                 });
             });
         });
