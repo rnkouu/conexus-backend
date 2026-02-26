@@ -852,21 +852,34 @@ function NfcProfileWrapper({ slug }) {
    MAIN APP
    ========================= */
 function App() {
-  const queryParams = new URLSearchParams(window.location.search);
-  const nfcSlugParam = queryParams.get('nfc');
-  const isNfcRoute = !!nfcSlugParam;
-  
-  const [view, setView] = useState(isNfcRoute ? "nfc-profile" : "landing");
-  const [nfcSlug, setNfcSlug] = useState(nfcSlugParam);
-  
-  const [user, setUser] = useState(null);
-  const [events, setEvents] = useState([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-  const [registrations, setRegistrations] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
-  const [selectedSingleEvent, setSelectedSingleEvent] = useState(null);
-  const [regModalOpen, setRegModalOpen] = useState(false);
-  const [targetEvent, setTargetEvent] = useState(null);
+  const queryParams = new URLSearchParams(window.location.search);
+  const nfcSlugParam = queryParams.get('nfc');
+  const isNfcRoute = !!nfcSlugParam;
+  
+  // 1. Check for saved user on load
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('conexus_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) { return null; }
+  });
+
+  // 2. Set the correct view based on the saved user
+  const [view, setView] = useState(() => {
+    if (isNfcRoute) return "nfc-profile";
+    try {
+      const savedUser = localStorage.getItem('conexus_user');
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u.role === 'admin') return 'admin';
+        if (u.role === 'presenter') return 'presenter';
+        return 'participant';
+      }
+    } catch (e) {}
+    return "landing";
+  });
+  
+  const [nfcSlug, setNfcSlug] = useState(nfcSlugParam);
 
   // --- 1. DATA FETCHING LOGIC EXTRACTED ---
   async function loadEvents() {
@@ -954,9 +967,10 @@ function App() {
   };
 
   // SECURE: Destroy token on logout
-  const handleLogout = () => { 
-    localStorage.removeItem('conexus_token'); 
-    setUser(null); 
+  const handleLogout = () => { 
+    localStorage.removeItem('conexus_token'); 
+    localStorage.removeItem('conexus_user'); // <-- ADD THIS LINE
+    setUser(null); 
     setRegistrations([]); 
     setSubmissions([]); 
     setView("landing"); 
@@ -973,10 +987,11 @@ function App() {
       });
       const result = await response.json();
       if (result.success) {
-        
-        localStorage.setItem('conexus_token', result.token); // SECURE: Save Token
+        
+        localStorage.setItem('conexus_token', result.token); // SECURE: Save Token
+        localStorage.setItem('conexus_user', JSON.stringify(result.user)); // <-- ADD THIS LINE
 
-        setUser(result.user);
+        setUser(result.user);
         if (result.user.role === 'admin') setView('admin');
         else if (result.user.role === 'presenter') setView('presenter');
         else setView('participant');
