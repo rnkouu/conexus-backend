@@ -921,11 +921,25 @@ function App() {
     } catch (err) { console.error(err); }
   }
 
-  // Initial Load
-  useEffect(() => { loadEvents(); }, []);
+  // 1. Auto-refresh Events every 3 seconds (Syncs edits everywhere)
+  useEffect(() => { 
+    loadEvents(); 
+    const eventInterval = setInterval(() => {
+      loadEvents();
+    }, 3000);
+    return () => clearInterval(eventInterval);
+  }, []);
 
-  // User-dependent Load
-  useEffect(() => { loadRegistrations(); }, [user]);
+  // 2. Auto-refresh User Registrations globally every 3 seconds
+  useEffect(() => { 
+    loadRegistrations(); 
+    if (user) {
+      const regInterval = setInterval(() => {
+        loadRegistrations();
+      }, 3000);
+      return () => clearInterval(regInterval);
+    }
+  }, [user]);
 
   const navigate = (nextView) => {
     if (nextView === "landing-faq") {
@@ -1072,27 +1086,35 @@ function App() {
   };
 
   // SECURE: Attach token to loading user's previous submissions
-  useEffect(() => {
-    async function load(u) {
-      if (!u) return;
-      const token = localStorage.getItem('conexus_token');
-      const res = await fetch(`${API_BASE_URL}/submissions?email=${encodeURIComponent(u.email)}`, {
-        headers: { 'Authorization': `Bearer ${token}` } // SECURE: Attach Token
-      });
-      const data = await res.json();
-      if (Array.isArray(data)) setSubmissions(data.map(s => ({
-        id: s.id,
-        userEmail: s.user_email,
-        eventId: s.event_id,
-        title: s.title,
-        abstract: s.abstract,
-        fileName: s.file_name,
-        status: s.status,
-        submittedAt: s.created_at
-      })));
-    }
-    if (user) load(user); else setSubmissions([]);
-  }, [user]);
+ // SECURE: Attach token to loading user's previous submissions + Auto Refresh
+  useEffect(() => {
+    async function load(u) {
+      if (!u) return;
+      const token = localStorage.getItem('conexus_token');
+      const res = await fetch(`${API_BASE}/submissions?email=${encodeURIComponent(u.email)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) setSubmissions(data.map(s => ({
+        id: s.id,
+        userEmail: s.user_email,
+        eventId: s.event_id,
+        title: s.title,
+        abstract: s.abstract,
+        fileName: s.file_name,
+        status: s.status,
+        submittedAt: s.created_at
+      })));
+    }
+    
+    if (user) {
+      load(user);
+      const subInterval = setInterval(() => load(user), 3000);
+      return () => clearInterval(subInterval);
+    } else {
+      setSubmissions([]);
+    }
+  }, [user]);
 
   let inner = null;
   if (view === "nfc-profile") inner = <NfcProfileWrapper slug={nfcSlug} />;
