@@ -380,7 +380,7 @@
       };
 
       fetchLiveRegs();
-      const interval = setInterval(fetchLiveRegs, 4000); 
+      const interval = setInterval(fetchLiveRegs, 3000); 
       return () => clearInterval(interval);
     }, [user]);
 

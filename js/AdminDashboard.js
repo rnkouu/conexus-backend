@@ -1937,7 +1937,18 @@ Notes / Flags
       });
     };
 
-    useEffect(() => { loadData(); }, []);
+   useEffect(() => { 
+    // 1. Fetch data immediately when the dashboard loads
+    loadData(); 
+
+    // 2. Set up a background timer to silently fetch fresh data every 10 seconds
+    const autoRefreshInterval = setInterval(() => {
+        loadData();
+    }, 3000); // 10000 ms = 10 seconds
+
+    // 3. Clean up the timer if the admin logs out or closes the dashboard
+    return () => clearInterval(autoRefreshInterval);
+}, []);
 
     useEffect(() => {
         let interval;
