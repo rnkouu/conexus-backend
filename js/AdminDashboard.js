@@ -290,10 +290,8 @@
     });
   };
 
-  // --- NEW: Editable AI Report Modal ---
+ // --- NEW: Editable AI Report Modal ---
   function EditableAIReportModal({ isOpen, onClose, reportItems }) {
-      if (!isOpen) return null;
-      
       const [editedTexts, setEditedTexts] = useState({});
 
       useEffect(() => {
@@ -305,6 +303,8 @@
               setEditedTexts(init);
           }
       }, [isOpen, reportItems]);
+
+      if (!isOpen) return null;
 
       const handleDownloadPDF = () => {
           if (!window.jspdf) {
@@ -336,8 +336,8 @@
               
               yOffset += (splitText.length * 5) + 20;
 
-              if (item.charts.regImg) doc.addImage(item.charts.regImg, 'PNG', 10, yOffset, 80, 50);
-              if (item.charts.attImg) doc.addImage(item.charts.attImg, 'PNG', 100, yOffset, 80, 50);
+              if (item.charts && item.charts.regImg) doc.addImage(item.charts.regImg, 'PNG', 10, yOffset, 80, 50);
+              if (item.charts && item.charts.attImg) doc.addImage(item.charts.attImg, 'PNG', 100, yOffset, 80, 50);
 
               yOffset += 65;
 
@@ -362,33 +362,38 @@
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-gray-50/50">
-                      {reportItems && reportItems.length === 0 && <p className="text-center text-gray-400">No events found to report on.</p>}
-                      {reportItems && reportItems.map(item => (
-                          <div key={item.eventId} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                              <h4 className="text-lg font-bold text-gray-800 mb-4">{item.eventTitle}</h4>
-                              
-                              <textarea
-                                  className="w-full h-64 p-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:border-brand outline-none mb-6 font-mono resize-y"
-                                  value={editedTexts[item.eventId] || ""}
-                                  onChange={(e) => setEditedTexts({...editedTexts, [item.eventId]: e.target.value})}
-                              />
-                              
-                              <div className="flex flex-wrap gap-4">
-                                  {item.charts.regImg && (
-                                      <div className="border border-gray-100 rounded-xl p-2 bg-gray-50">
-                                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Registrations</p>
-                                          <img src={item.charts.regImg} alt="Registration Chart" className="w-64 object-contain" />
-                                      </div>
-                                  )}
-                                  {item.charts.attImg && (
-                                      <div className="border border-gray-100 rounded-xl p-2 bg-gray-50">
-                                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Attendance</p>
-                                          <img src={item.charts.attImg} alt="Attendance Chart" className="w-64 object-contain" />
-                                      </div>
-                                  )}
+                      {/* FIX: Replaced && short-circuits with safe ternaries to bypass React 18 Bug */}
+                      {!reportItems || reportItems.length === 0 ? (
+                          <p className="text-center text-gray-400">No events found to report on.</p>
+                      ) : (
+                          reportItems.map(item => (
+                              <div key={item.eventId} className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                                  <h4 className="text-lg font-bold text-gray-800 mb-4">{item.eventTitle}</h4>
+                                  
+                                  <textarea
+                                      className="w-full h-64 p-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:border-brand outline-none mb-6 font-mono resize-y"
+                                      value={editedTexts[item.eventId] || ""}
+                                      onChange={(e) => setEditedTexts({...editedTexts, [item.eventId]: e.target.value})}
+                                  />
+                                  
+                                  <div className="flex flex-wrap gap-4">
+                                      {item.charts && item.charts.regImg ? (
+                                          <div className="border border-gray-100 rounded-xl p-2 bg-gray-50">
+                                              <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Registrations</p>
+                                              <img src={item.charts.regImg} alt="Registration Chart" className="w-64 object-contain" />
+                                          </div>
+                                      ) : null}
+                                      
+                                      {item.charts && item.charts.attImg ? (
+                                          <div className="border border-gray-100 rounded-xl p-2 bg-gray-50">
+                                              <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-center">Attendance</p>
+                                              <img src={item.charts.attImg} alt="Attendance Chart" className="w-64 object-contain" />
+                                          </div>
+                                      ) : null}
+                                  </div>
                               </div>
-                          </div>
-                      ))}
+                          ))
+                      )}
                   </div>
 
                   <div className="px-8 py-5 border-t border-gray-100 bg-white flex justify-end gap-4">
