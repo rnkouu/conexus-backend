@@ -965,6 +965,7 @@ const [events, setEvents] = useState([]);
   const navigate = (nextView) => {
     if (nextView === "landing-faq") {
       setView("landing");
+      window.history.pushState(null, "", "/"); // Reset URL
       setTimeout(() => {
         const faq = document.getElementById("conexus-faq-section");
         if (faq) faq.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -972,6 +973,8 @@ const [events, setEvents] = useState([]);
       return;
     }
     setView(nextView);
+    const urlPath = nextView === 'landing' ? '/' : `/#${nextView}`;
+    window.history.pushState(null, "", urlPath);
   };
 
   // SECURE: Destroy token on logout
@@ -981,7 +984,7 @@ const [events, setEvents] = useState([]);
     setUser(null); 
     setRegistrations([]); 
     setSubmissions([]); 
-    setView("landing"); 
+    navigate("landing");
   };
 
   // SECURE: Save token on login
@@ -1000,7 +1003,7 @@ const [events, setEvents] = useState([]);
         localStorage.setItem('conexus_user', JSON.stringify(result.user)); // <-- ADD THIS LINE
 
         setUser(result.user);
-        if (result.user.role === 'admin') setView('admin');
+        if (result.user.role === 'admin') navigate('admin');
         else if (result.user.role === 'presenter') setView('presenter');
         else setView('participant');
         return { ok: true };
