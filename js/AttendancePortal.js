@@ -12,15 +12,17 @@
     if (status === "success") return "CHECK-IN RECORDED";
     if (status === "repeat") return "ALREADY CHECKED IN";
     if (status === "not_approved") return "NOT APPROVED";
+    if (status === "wrong_event") return "NOT REGISTERED ON THIS EVENT"; // <-- ADDED THIS
     return "NOT FOUND";
-  }
+}
 
   function statusTagClass(status) {
     if (status === "success") return "bg-emerald-500/10 border border-emerald-400/40 text-emerald-200";
     if (status === "repeat") return "bg-amber-500/10 border border-amber-400/40 text-amber-200";
     if (status === "not_approved") return "bg-sky-500/10 border border-sky-400/40 text-sky-200";
+    if (status === "wrong_event") return "bg-orange-500/10 border border-orange-400/40 text-orange-200"; // <-- ADDED THIS
     return "bg-rose-500/10 border border-rose-400/40 text-rose-200";
-  }
+}
 
   // --- Main App ---
   function AttendancePortalApp() {
