@@ -881,6 +881,14 @@ function App() {
   
   const [nfcSlug, setNfcSlug] = useState(nfcSlugParam);
 
+const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [registrations, setRegistrations] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [selectedSingleEvent, setSelectedSingleEvent] = useState(null);
+  const [regModalOpen, setRegModalOpen] = useState(false);
+  const [targetEvent, setTargetEvent] = useState(null);
+
   // --- 1. DATA FETCHING LOGIC EXTRACTED ---
   async function loadEvents() {
     try {
