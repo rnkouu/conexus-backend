@@ -179,15 +179,37 @@ app.get('/api/users/nfc/:profile_slug', (req, res) => {
 
 app.post('/api/attendance/scan', (req, res) => {
     const { portal_id, input_code } = req.body;
-    db.query("SELECT name FROM attendance_portals WHERE id = ?", [portal_id], (err, portals) => {
-        const roomName = portals[0]?.name || "Unknown";
-        const sql = "SELECT r.id, r.status, u.full_name FROM registrations r JOIN users u ON r.user_id = u.id WHERE (r.nfc_card_id = ? OR u.email = ?) LIMIT 1";
-        db.query(sql, [input_code, input_code], (err, results) => {
+    
+    // 1. Fetch both the room name AND the event_id for this portal
+    db.query("SELECT name, event_id FROM attendance_portals WHERE id = ?", [portal_id], (err, portals) => {
+        if (err || portals.length === 0) {
+            return res.json({success: false, status: 'not_found', message: 'Portal not found'});
+        }
+
+        const roomName = portals[0].name || "Unknown";
+        const portalEventId = portals[0].event_id; // We need this to verify the correct event!
+
+        // 2. Add 'AND r.event_id = ?' to ensure they are registered for THIS event
+        const sql = `
+            SELECT r.id, r.status, u.full_name 
+            FROM registrations r 
+            JOIN users u ON r.user_id = u.id 
+            WHERE (r.nfc_card_id = ? OR u.email = ?) 
+            AND r.event_id = ? 
+            LIMIT 1
+        `;
+        
+        db.query(sql, [input_code, input_code, portalEventId], (err, results) => {
+            // If results are 0, they are either not in the system OR not registered for this specific event
             if(results.length === 0) return res.json({success: false, status: 'not_found'});
+            
             const reg = results[0];
+            
             if(reg.status !== 'Approved') return res.json({success: false, status: 'not_approved', name: reg.full_name});
+            
             db.query("SELECT id FROM attendance_logs WHERE registration_id = ? AND scanned_at > (NOW() - INTERVAL 5 MINUTE)", [reg.id], (err, dups) => {
                 if(dups.length > 0) return res.json({success: false, status: 'repeat', name: reg.full_name});
+                
                 db.query("INSERT INTO attendance_logs (portal_id, room_name, registration_id, scanned_at) VALUES (?, ?, ?, NOW())", [portal_id, roomName, reg.id], () => {
                     res.json({success: true, status: 'success', name: reg.full_name});
                 });
