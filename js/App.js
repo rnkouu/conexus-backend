@@ -890,12 +890,15 @@ const [events, setEvents] = useState([]);
   const [targetEvent, setTargetEvent] = useState(null);
 
   // --- 1. DATA FETCHING LOGIC EXTRACTED ---
-  async function loadEvents() {
+  async function loadEvents(isBackground = false) {
     try {
-      setLoadingEvents(true);
+      // Only show the spinner if it's the very first load
+      if (!isBackground) setLoadingEvents(true); 
+      
       const response = await fetch(`${API_BASE_URL}/events`);
       if (!response.ok) throw new Error("Server response not ok");
       const data = await response.json();
+      
       if (Array.isArray(data) && data.length > 0) {
         setEvents(data.map(row => ({
           id: row.id,
@@ -909,8 +912,15 @@ const [events, setEvents] = useState([]);
           featured: !!row.featured,
           tags: []
         })));
-      } else setEvents(FAKE_EVENTS);
-    } catch (err) { setEvents(FAKE_EVENTS); } finally { setLoadingEvents(false); }
+      } else {
+          setEvents(FAKE_EVENTS);
+      }
+    } catch (err) { 
+        setEvents(FAKE_EVENTS); 
+    } finally { 
+        // Only hide the spinner if we were the ones who turned it on
+        if (!isBackground) setLoadingEvents(false); 
+    }
   }
 
   // In App.js
@@ -942,14 +952,14 @@ const [events, setEvents] = useState([]);
     } catch (err) { console.error(err); }
   }
 
-  // 1. Auto-refresh Events every 3 seconds (Syncs edits everywhere)
-  useEffect(() => { 
-    loadEvents(); 
-    const eventInterval = setInterval(() => {
-      loadEvents();
-    }, 3000);
-    return () => clearInterval(eventInterval);
-  }, []);
+ // 1. Auto-refresh Events every 3 seconds (Syncs edits silently)
+  useEffect(() => { 
+    loadEvents(); // Initial load (shows spinner once)
+    const eventInterval = setInterval(() => {
+      loadEvents(true); // Background load (passes "true" to skip the spinner)
+    }, 3000);
+    return () => clearInterval(eventInterval);
+  }, []);
 
   // 2. Auto-refresh User Registrations globally every 3 seconds
   useEffect(() => { 
