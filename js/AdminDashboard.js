@@ -516,7 +516,7 @@
     };
 
     return createPortal(
-      <div key={isOpen ? 'open' : 'closed'} className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center" onClick={e => e.stopPropagation()}>
               <div className="mb-4 text-4xl">📡</div>
               <h3 className="text-xl font-bold mb-2">Scan Card Now</h3>

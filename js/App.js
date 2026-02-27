@@ -1015,7 +1015,7 @@ const [events, setEvents] = useState([]);
   const handleRegister = async (form) => {
     const payload = { name: form.name, email: form.email.toLowerCase().trim(), password: form.password, university: form.university || "" };
     try {
-      const response = await fetch(`${API_BASE}/register_user`, {
+      const response = await fetch(`${API_BASE_URL}/register_user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
