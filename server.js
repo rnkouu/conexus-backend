@@ -18,10 +18,13 @@ const PORT = process.env.PORT || 8000;
 const JWT_SECRET = process.env.JWT_SECRET || 'conexus_super_secret_key_2026'; // Added Secret
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Use 'gmail' if your @aup.edu.ph uses Google Workspace
+    host: 'smtp.gmail.com',
+    port: 587, // This specific port bypasses Railway's spam block
+    secure: false, // true for 465, false for other ports
+    requireTLS: true, // Forces secure connection
     auth: {
-        user: process.env.EMAIL_USER, // Your sender email
-        pass: process.env.EMAIL_PASS  // Your Google App Password
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS  
     }
 });
 
