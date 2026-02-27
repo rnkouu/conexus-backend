@@ -790,7 +790,10 @@ function Shell({ view, user, onNavigate, onLogout, children }) {
 }
 
 function downloadInvitationPdf(event, user) {
-  if (!window.jspdf || !window.jspdf.jsPDF) { alert("PDF generator not loaded."); return; }
+  if (!window.jspdf || !window.jspdf.jsPDF) { 
+      window.Swal.fire('Missing Library', 'PDF generator not loaded.', 'error'); 
+      return; 
+  }
   const doc = new window.jspdf.jsPDF();
   const lineHeight = 7; let y = 20;
   const name = (user && user.name) || "Participant";

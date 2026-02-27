@@ -172,7 +172,7 @@
 
     const handleDownload = async () => {
       if (!window.html2canvas || !window.jspdf) {
-        alert("PDF libraries not loaded.");
+        window.Swal.fire('Missing Libraries', 'PDF libraries not loaded.', 'error');
         return;
       }
       setIsDownloading(true);
@@ -183,7 +183,9 @@
         const pdf = new jsPDF('l', 'mm', 'a4'); 
         pdf.addImage(imgData, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
         pdf.save("certificate_template.pdf");
-      } catch (err) { alert("Failed to generate PDF."); } finally { setIsDownloading(false); }
+      } catch (err) { 
+        window.Swal.fire('Error', 'Failed to generate PDF.', 'error'); 
+      } finally { setIsDownloading(false); }
     };
 
     return (
@@ -308,7 +310,7 @@
 
       const handleDownloadPDF = () => {
           if (!window.jspdf) {
-              alert("PDF library not loaded. Please ensure jsPDF is in your HTML.");
+              window.Swal.fire('Missing Library', 'PDF library not loaded. Please ensure jsPDF is in your HTML.', 'error');
               return;
           }
           const { jsPDF } = window.jspdf;
@@ -912,7 +914,7 @@
     
     const handleWriteNFC = async (participant) => {
         if (!('NDEFReader' in window)) {
-            alert('⚠️ Web NFC is not supported on this device. Please use Google Chrome on an Android phone or tablet.');
+            window.Swal.fire('Unsupported', 'Web NFC is not supported on this device. Please use Google Chrome on an Android phone.', 'warning');
             return;
         }
         try {
@@ -920,15 +922,13 @@
             const nfcUrl = `https://cconexus.vercel.app/?nfc=${slug}`;
             const ndef = new window.NDEFReader();
             
-            alert(`Ready to write! Tap the blank NFC card against the back of your phone now.`);
+            window.Swal.fire({ title: 'Ready to write!', text: 'Tap the blank NFC card against the back of your phone now.', icon: 'info', showConfirmButton: false });
             
-            await ndef.write({
-                records: [{ recordType: "url", data: nfcUrl }]
-            });
-            alert(`✅ Success! ${participant.fullName}'s Digital Business Card is now linked.`);
+            await ndef.write({ records: [{ recordType: "url", data: nfcUrl }] });
+            window.Swal.fire('Success!', `${participant.fullName}'s Digital Business Card is now linked.`, 'success');
         } catch (error) {
             console.error("NFC Write Error:", error);
-            alert(`❌ Failed to write to card. Error: ${error.message}`);
+            window.Swal.fire('Failed', `Failed to write to card. Error: ${error.message}`, 'error');
         }
     };
     
@@ -1977,7 +1977,7 @@ Notes / Flags
     const handleExport = async (stats) => {
       try {
         if (!window.XLSX) {
-          alert("Excel export requires SheetJS (XLSX). Please include xlsx.full.min.js in your index.html.");
+          window.Swal.fire('Missing Library', 'Excel export requires SheetJS (XLSX). Please include xlsx.full.min.js in your index.html.', 'warning');
           return;
         }
 
@@ -2008,7 +2008,7 @@ Notes / Flags
         });
       } catch (err) {
         console.error("Excel export failed:", err);
-        alert("Export failed. Open the console for details.");
+        window.Swal.fire('Export Failed', 'Open the console for details.', 'error');
       }
     };
 
@@ -2045,9 +2045,9 @@ Notes / Flags
             setAiReportItems(reportItemsWithCharts);
             setAiReportModalOpen(true);
         } catch (error) {
-            console.error(error);
-            alert("Failed to generate AI report.");
-        } finally {
+        console.error(error);
+        window.Swal.fire('Error', 'Failed to generate AI report.', 'error');
+    } finally {
             setIsGeneratingReport(false);
         }
     };
@@ -2067,9 +2067,16 @@ Notes / Flags
         });
         
         const data = await res.json();
-        if (data.success) { loadData(); setCreateEventOpen(false); }
-        else { alert("Failed: " + (data.error || "Unknown Error")); }
-      } catch (err) { alert("Save failed"); }
+        if (data.success) { 
+            loadData(); 
+            setCreateEventOpen(false); 
+            window.Swal.fire('Saved!', 'The event has been saved successfully.', 'success');
+        } else { 
+            window.Swal.fire('Failed', data.error || "Unknown Error", 'error'); 
+        }
+      } catch (err) { 
+          window.Swal.fire('Error', 'Save failed. Could not connect.', 'error'); 
+      }
       setCreateEventSaving(false);
     };
     
@@ -2127,25 +2134,23 @@ Notes / Flags
     };
 
     const handleNfcSubmit = async (scannedId) => {
-      setRegistrations(prev => prev.map(r => 
-        r.id === nfcTargetReg.id ? { ...r, nfc_card_id: scannedId } : r
-      ));
+      setRegistrations(prev => prev.map(r => r.id === nfcTargetReg.id ? { ...r, nfc_card_id: scannedId } : r));
       setNfcModalOpen(false);
-
       try {
         const res = await fetch(`${API_BASE}/registrations/${nfcTargetReg.id}/assign-nfc`, {
           method: 'PUT',
           headers: getAuthHeaders(),
           body: JSON.stringify({ nfc_card_id: scannedId })
         });
-        
         const data = await res.json();
         if (!data.success) {
-          alert(data.message || "Failed to link card");
+          window.Swal.fire('Failed', data.message || "Failed to link card", 'error');
           loadData(); 
+        } else {
+          window.Swal.fire('Linked!', 'NFC Card has been assigned.', 'success');
         }
       } catch (err) {
-        alert("Server error linking card");
+        window.Swal.fire('Error', 'Server error linking card', 'error');
         loadData();
       }
     };
@@ -2207,7 +2212,8 @@ Notes / Flags
     const handleBatchEmail = async (targets) => {
         setBatchStatus({ state: 'sending', processed: 0, total: targets.length, errors: 0 });
         for(let t of targets) { setBatchStatus(p => ({...p, processed: p.processed + 1})); }
-        setBatchStatus(p => ({ ...p, state: 'complete' })); alert("Batch complete!");
+        setBatchStatus(p => ({ ...p, state: 'complete' })); 
+        window.Swal.fire('Batch Complete!', 'Emails have been processed.', 'success');
     };
     const issueCertNow = () => { const win = window.open('','_blank'); win.document.write(getCertHtml()); win.document.close(); win.print(); };
 
