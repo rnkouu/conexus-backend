@@ -19,12 +19,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'conexus_super_secret_key_2026'; //
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    requireTLS: true,
+    port: 465,           // Changed from 587 to 465
+    secure: true,        // Changed from false to true
     auth: {
-        user: process.env.EMAIL_USER,
+        user: process.env.EMAIL_USER, 
         pass: process.env.EMAIL_PASS  
+    },
+    tls: {
+        // This helps bypass strict internal proxies on cloud hosts
+        rejectUnauthorized: false 
     }
 });
 
