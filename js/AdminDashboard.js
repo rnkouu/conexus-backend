@@ -2156,31 +2156,61 @@ Notes / Flags
     };
 
     const handleAddDorm = async (name, type) => { 
+      try {
         await fetch(`${API_BASE}/dorms`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ name, type }) });
         loadData(); 
+        window.Swal.fire({ title: 'Created!', text: 'Location added successfully.', icon: 'success', timer: 1500, showConfirmButton: false });
+      } catch (err) {
+        window.Swal.fire('Error', 'Failed to create location.', 'error');
+      }
     };
     
     const handleDeleteDorm = async (id) => { 
-        if (confirm("Delete location?")) { 
-            setDorms(prev => prev.filter(d => d.id !== id));
-            try {
-                await fetch(`${API_BASE}/dorms/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
-            } catch(e) { loadData(); }
-        } 
+      const result = await window.Swal.fire({
+          title: 'Delete Location?',
+          text: "This will remove the location and all its rooms.",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Yes, delete it!'
+      });
+      if (result.isConfirmed) { 
+          setDorms(prev => prev.filter(d => d.id !== id));
+          try {
+              await fetch(`${API_BASE}/dorms/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+              window.Swal.fire({ title: 'Deleted!', text: 'Location removed.', icon: 'success', timer: 1500, showConfirmButton: false });
+          } catch(e) { loadData(); }
+      } 
     };
 
     const handleAddRoom = async (form) => { 
+      try {
         await fetch(`${API_BASE}/rooms`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(form) });
         loadData(); 
+        window.Swal.fire({ title: 'Created!', text: 'Room added successfully.', icon: 'success', timer: 1500, showConfirmButton: false });
+      } catch (err) {
+        window.Swal.fire('Error', 'Failed to add room.', 'error');
+      }
     };
     
     const handleDeleteRoom = async (id) => { 
-        if (confirm("Delete room?")) { 
-            setRooms(prev => prev.filter(r => r.id !== id));
-            try {
-                await fetch(`${API_BASE}/rooms/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
-            } catch(e) { loadData(); }
-        } 
+      const result = await window.Swal.fire({
+          title: 'Delete Room?',
+          text: "Are you sure you want to remove this room?",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Yes, delete it!'
+      });
+      if (result.isConfirmed) { 
+          setRooms(prev => prev.filter(r => r.id !== id));
+          try {
+              await fetch(`${API_BASE}/rooms/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+              window.Swal.fire({ title: 'Deleted!', text: 'Room removed.', icon: 'success', timer: 1500, showConfirmButton: false });
+          } catch(e) { loadData(); }
+      } 
     };
 
     const handleCreatePortal = async (form) => { 
@@ -2188,19 +2218,31 @@ Notes / Flags
         setPortals(prev => [newPortal, ...prev]);
         try {
             await fetch(`${API_BASE}/portals`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(newPortal) });
+            window.Swal.fire({ title: 'Created!', text: 'Portal added successfully.', icon: 'success', timer: 1500, showConfirmButton: false });
         } catch (e) {
             loadData();
+            window.Swal.fire('Error', 'Failed to create portal.', 'error');
         }
         return true; 
     };
     
     const handleDeletePortal = async (id) => { 
-        if (confirm("Delete?")) { 
-            setPortals(prev => prev.filter(p => p.id !== id));
-            try {
-                await fetch(`${API_BASE}/portals/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
-            } catch(e) { loadData(); }
-        } 
+      const result = await window.Swal.fire({
+          title: 'Delete Portal?',
+          text: "This attendance portal will be permanently removed.",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444',
+          cancelButtonColor: '#6b7280',
+          confirmButtonText: 'Yes, delete it!'
+      });
+      if (result.isConfirmed) { 
+          setPortals(prev => prev.filter(p => p.id !== id));
+          try {
+              await fetch(`${API_BASE}/portals/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+              window.Swal.fire({ title: 'Deleted!', text: 'Portal removed.', icon: 'success', timer: 1500, showConfirmButton: false });
+          } catch(e) { loadData(); }
+      } 
     };
 
     const getCertHtml = () => {
@@ -2310,7 +2352,30 @@ Notes / Flags
                     rooms={rooms} 
                     dorms={dorms} 
                     onUpdateStatus={handleUpdateStatus} 
-                    onRevoke={(r) => setRevokeTarget(r)}
+                    
+                    // REPLACE THIS LINE:
+                    // onRevoke={(r) => setRevokeTarget(r)}
+                    
+                    // WITH THIS LINE:
+                    onRevoke={async (reg) => {
+                        const isPending = reg.status === 'For approval';
+                        const { value: note, isConfirmed } = await window.Swal.fire({
+                            title: isPending ? 'Reject Registration' : 'Revoke Registration',
+                            html: `You are about to ${isPending ? 'reject' : 'revoke approval for'} <b>${reg.fullName}</b>.<br/><br/>Please provide a reason:`,
+                            input: 'textarea',
+                            inputPlaceholder: 'e.g. Invalid ID, Not eligible...',
+                            showCancelButton: true,
+                            confirmButtonColor: '#ef4444',
+                            cancelButtonColor: '#6b7280',
+                            confirmButtonText: isPending ? 'Confirm Reject' : 'Confirm Revoke',
+                            inputValidator: (value) => { if (!value) return 'You must provide a reason!' }
+                        });
+                        if (isConfirmed && note) {
+                            await handleUpdateStatus(reg.id, "Rejected", null, note);
+                            window.Swal.fire({ title: isPending ? 'Rejected!' : 'Revoked!', text: 'The participant has been notified.', icon: 'success', timer: 1500, showConfirmButton: false });
+                        }
+                    }}
+                    
                     onAssign={(r) => { setAssignTargetReg(r); setAssignModalOpen(true); }} 
                     onNfc={(r) => { setNfcTargetReg(r); setNfcModalOpen(true); }} 
                     onPreview={setPreviewTarget} 
