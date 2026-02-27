@@ -2257,7 +2257,46 @@ Notes / Flags
         setBatchStatus(p => ({ ...p, state: 'complete' })); 
         window.Swal.fire('Batch Complete!', 'Emails have been processed.', 'success');
     };
-    const issueCertNow = () => { const win = window.open('','_blank'); win.document.write(getCertHtml()); win.document.close(); win.print(); };
+
+    // NEW: Function to handle sending a single email and updating the database
+    const handleSingleEmail = async (target) => {
+        setCertEmailSending(true);
+        try {
+            await fetch(`${API_BASE}/registrations/${target.id}/mark-certificate`, {
+                method: 'PUT',
+                headers: getAuthHeaders()
+            });
+            // Update UI to show as "Issued"
+            setRegistrations(prev => prev.map(r => r.id === target.id ? { ...r, certificateIssuedAt: new Date().toISOString() } : r));
+            window.Swal.fire('Sent!', `Certificate emailed to ${target.userEmail}`, 'success');
+            setCertDrawerOpen(false);
+        } catch (err) {
+            window.Swal.fire('Error', 'Failed to send email.', 'error');
+        } finally {
+            setCertEmailSending(false);
+        }
+    };
+
+    // FIXED: Now actually downloads a PDF using html2canvas and jsPDF instead of printing
+    const issueCertNow = async () => {
+        if (!window.html2canvas || !window.jspdf) {
+            window.Swal.fire('Missing Libraries', 'PDF libraries not loaded.', 'error');
+            return;
+        }
+        try {
+            const element = document.getElementById('certPreview');
+            if (!element) return;
+            
+            const canvas = await window.html2canvas(element, { scale: 2, useCORS: true });
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'mm', 'a4'); 
+            pdf.addImage(imgData, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+            pdf.save(`Certificate_${certTarget?.fullName?.replace(/\s+/g, '_') || 'Participant'}.pdf`);
+        } catch (err) {
+            window.Swal.fire('Error', 'Failed to generate PDF.', 'error');
+        }
+    };
 
     if (section === "admin-certificate-designer") return (<section className="relative max-w-7xl mx-auto px-4 py-8"><CertificateDesigner onBack={() => setSection("certificates")} /></section>);
 
@@ -2393,7 +2432,7 @@ Notes / Flags
         <CreateEventModal isOpen={createEventOpen} isSaving={createEventSaving} editId={editEventId} formData={eventForm} onChange={(e) => { const { name, value, type, checked } = e.target; setEventForm(p => ({ ...p, [name]: type === 'checkbox' ? checked : value })); }} onClose={() => setCreateEventOpen(false)} onSave={saveEvent} />
         <NfcModal isOpen={nfcModalOpen} targetReg={nfcTargetReg} onClose={() => setNfcModalOpen(false)} onSubmit={handleNfcSubmit} />
         <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, "Approved", id)} />
-        <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onPrint={issueCertNow} />
+        <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onEmail={handleSingleEmail} onPrint={issueCertNow} />
         <RegistrationPreviewModal reg={previewTarget} onClose={() => setPreviewTarget(null)} />
         
         {/* REVOKE / REJECT MODAL */}
