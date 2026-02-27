@@ -9,12 +9,22 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const jwt = require('jsonwebtoken'); // NEW: JWT Library
+const nodemailer = require('nodemailer'); // <-- 1. Require Nodemailer
 
 const app = express();
 
 // --- CONFIGURATION ---
 const PORT = process.env.PORT || 8000; 
 const JWT_SECRET = process.env.JWT_SECRET || 'conexus_super_secret_key_2026'; // Added Secret
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // Use 'gmail' if your @aup.edu.ph uses Google Workspace
+    auth: {
+        user: process.env.EMAIL_USER, // Your sender email
+        pass: process.env.EMAIL_PASS  // Your Google App Password
+    }
+});
+
 
 // --- Ensure uploads directory exists ---
 const uploadDir = path.join(__dirname, 'uploads');
@@ -550,7 +560,126 @@ app.put('/api/submissions/:id/status', verifyToken, verifyAdmin, (req, res) => {
 });
 
 app.put('/api/registrations/:id/mark-certificate', verifyToken, verifyAdmin, (req, res) => {
-    db.query("UPDATE registrations SET certificate_issued_at = NOW() WHERE id = ?", [req.params.id], (err) => res.json({ success: !err }));
+    const regId = req.params.id;
+
+    // 1. Fetch the participant's exact details (including their specific email)
+    const fetchSql = `
+        SELECT r.*, u.full_name, u.email as user_email, e.title as event_title 
+        FROM registrations r
+        JOIN users u ON r.user_id = u.id
+        JOIN events e ON r.event_id = e.id
+        WHERE r.id = ?
+    `;
+
+    db.query(fetchSql, [regId], (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(500).json({ success: false, message: "Could not find registration details." });
+        }
+
+        const participant = results[0];
+
+        // 2. Draft the Email
+        const mailOptions = {
+            from: `"Conexus Event System" <${process.env.EMAIL_USER}>`,
+            to: participant.user_email, // <-- This sends it to ANY email provider they used!
+            subject: `Your Certificate for ${participant.event_title}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 12px;">
+                    <h2 style="color: #061f38;">Certificate Issued</h2>
+                    <p>Dear <b>${participant.full_name}</b>,</p>
+                    <p>Thank you for attending <b>${participant.event_title}</b>. Your certificate of participation has been officially issued by the organizers.</p>
+                    <p>You can log in to your Conexus dashboard at any time to view and download your high-quality PDF certificate.</p>
+                    <br/>
+                    <p>Best regards,<br/><b>The Event Organizers</b></p>
+                </div>
+            `
+        };
+
+        // 3. Send the Email
+        transporter.sendMail(mailOptions, (mailErr, info) => {
+            if (mailErr) {
+                console.error("Email Error:", mailErr);
+                return res.status(500).json({ success: false, message: "Failed to send email." });
+            }
+
+            // 4. Only update the database AFTER the email successfully sends
+            db.query("UPDATE registrations SET certificate_issued_at = NOW() WHERE id = ?", [regId], (updateErr) => {
+                if (updateErr) {
+                    return res.status(500).json({ success: false, message: "Emailed, but failed to update database." });
+                }
+                res.json({ success: true, message: "Certificate emailed and marked as issued." });
+            });
+        });
+    });
+});
+
+// ==========================================
+// BATCH EMAIL ROUTE
+// ==========================================
+app.post('/api/registrations/batch-email-certificates', verifyToken, verifyAdmin, async (req, res) => {
+    const { registrationIds } = req.body;
+    
+    if (!registrationIds || !Array.isArray(registrationIds) || registrationIds.length === 0) {
+        return res.status(400).json({ success: false, message: "No registrations provided." });
+    }
+
+    // Prepare SQL to grab data for ALL selected IDs at once
+    const placeholders = registrationIds.map(() => '?').join(',');
+    const fetchSql = `
+        SELECT r.*, u.full_name, u.email as user_email, e.title as event_title 
+        FROM registrations r
+        JOIN users u ON r.user_id = u.id
+        JOIN events e ON r.event_id = e.id
+        WHERE r.id IN (${placeholders})
+    `;
+
+    db.query(fetchSql, registrationIds, async (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(500).json({ success: false, message: "Could not find registration details." });
+        }
+
+        let successCount = 0;
+        let errorsCount = 0;
+
+        // Loop through each person and send their email one by one
+        for (const participant of results) {
+            const mailOptions = {
+                from: `"Conexus Event System" <${process.env.EMAIL_USER}>`,
+                to: participant.user_email,
+                subject: `Your Certificate for ${participant.event_title}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 12px;">
+                        <h2 style="color: #061f38;">Certificate Issued</h2>
+                        <p>Dear <b>${participant.full_name}</b>,</p>
+                        <p>Thank you for attending <b>${participant.event_title}</b>. Your certificate of participation has been officially issued by the organizers.</p>
+                        <p>You can log in to your Conexus dashboard at any time to view and download your high-quality PDF certificate.</p>
+                        <br/>
+                        <p>Best regards,<br/><b>The Event Organizers</b></p>
+                    </div>
+                `
+            };
+
+            try {
+                // Wait for the email to send
+                await transporter.sendMail(mailOptions);
+                
+                // If successful, update their specific row in the database
+                await new Promise((resolve, reject) => {
+                    db.query("UPDATE registrations SET certificate_issued_at = NOW() WHERE id = ?", [participant.id], (updateErr) => {
+                        if (updateErr) reject(updateErr);
+                        else resolve();
+                    });
+                });
+                successCount++;
+            } catch (e) {
+                console.error("Failed to process email for ID:", participant.id, e);
+                errorsCount++;
+            }
+        }
+
+        // Return a summary of how many succeeded vs failed
+        res.json({ success: true, processed: successCount, failed: errorsCount });
+    });
 });
 
 app.listen(PORT, () => console.log(`🚀 DATABASE Server is now running on Port ${PORT}`));
