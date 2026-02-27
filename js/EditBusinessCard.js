@@ -137,31 +137,28 @@ function EditBusinessCard({ user, onUpdateUser }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSave = async (e) => {
+ const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-        const token = localStorage.getItem('conexus_token'); // SECURED: Get token
+        const token = localStorage.getItem('conexus_token'); 
         const response = await fetch('https://conexus-backend-production.up.railway.app/api/users/profile', {
             method: 'PUT',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // SECURED: Attach token
+                'Authorization': `Bearer ${token}` 
             },
-            body: JSON.stringify({ 
-                email: user.email, 
-                ...formData 
-            })
+            body: JSON.stringify({ email: user.email, ...formData })
         });
         const data = await response.json();
         if (data.success) {
-            alert("Institutional profile updated!");
+            window.Swal.fire({ title: 'Saved!', text: 'Institutional profile updated!', icon: 'success', timer: 2000, showConfirmButton: false });
             if (onUpdateUser) onUpdateUser({ ...user, ...formData });
         } else {
-            alert(data.message || "Failed to update profile.");
+            window.Swal.fire({ title: 'Update Failed', text: data.message || "Failed to update profile.", icon: 'error', confirmButtonColor: '#1e5aa8' });
         }
     } catch (error) {
-        alert("Error saving card.");
+        window.Swal.fire({ title: 'Error', text: 'Error saving card.', icon: 'error', confirmButtonColor: '#1e5aa8' });
     } finally {
         setIsSaving(false);
     }

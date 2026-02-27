@@ -39,42 +39,35 @@
       e.preventDefault();
       setLoading(true);
 
-      // Basic validation
       if (!formData.email || !formData.password) {
-        alert("Please fill in email and password.");
+        window.Swal.fire({ title: 'Missing Fields', text: 'Please fill in email and password.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
         setLoading(false);
         return;
       }
 
       if (isLogin) {
-        const res = await onLogin({
-            email: formData.email,
-            password: formData.password
-        });
-        if (!res.ok) alert(res.message || "Login failed");
+        const res = await onLogin({ email: formData.email, password: formData.password });
+        if (!res.ok) {
+            window.Swal.fire({ title: 'Login Failed', text: res.message || "Invalid credentials", icon: 'error', confirmButtonColor: '#1e5aa8' });
+        }
       } else {
-        // Registration Validation
         if (!formData.firstName || !formData.lastName) {
-          alert("First Name and Last Name are required");
+          window.Swal.fire({ title: 'Missing Fields', text: 'First Name and Last Name are required', icon: 'warning', confirmButtonColor: '#1e5aa8' });
           setLoading(false);
           return;
         }
 
-        // Check if passwords match
         if (formData.password !== formData.confirmPassword) {
-          alert("Passwords do not match.");
+          window.Swal.fire({ title: 'Password Mismatch', text: 'Passwords do not match.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
           setLoading(false);
           return;
         }
 
-        // Logic: Combine parts into one "name" string for the backend
-        // Format: "John M. Doe" or "John Doe"
         const mi = formData.middleInitial ? `${formData.middleInitial.toUpperCase()}.` : "";
         const fullName = `${formData.firstName} ${mi} ${formData.lastName}`.replace(/\s+/g, " ").trim();
 
-        // Send constructed payload
         await onRegister({
-            name: fullName, // Backend expects 'name'
+            name: fullName,
             email: formData.email,
             password: formData.password,
             university: formData.university

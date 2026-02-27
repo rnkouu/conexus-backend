@@ -460,7 +460,7 @@
 
     const handleFinalRegistration = async () => {
       if (!selectedFile) {
-          alert("Please upload a valid ID to proceed.");
+          window.Swal.fire({ title: 'ID Required', text: 'Please upload a valid ID to proceed.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
           return;
       }
 
@@ -476,28 +476,24 @@
 
           const response = await fetch('https://conexus-backend-production.up.railway.app/api/register', {
               method: 'POST',
-              headers: {
-                  // REMOVE Content-Type completely! 
-                  // Let the browser set it automatically for FormData
-                  'Authorization': `Bearer ${token}` 
-              },
+              headers: { 'Authorization': `Bearer ${token}` },
               body: payload, 
           });
           
           const data = await response.json();
           
           if (data.success) {
-              alert("Registration Successful! Please wait for admin approval.");
+              window.Swal.fire({ title: 'Registration Submitted!', text: 'Please wait for admin approval.', icon: 'success', confirmButtonColor: '#1e5aa8' });
               setSelectedEvent(null); 
               setConfirmOpen(false);
               setTab("my");
               if(onRegister) onRegister(); 
           } else {
-              alert("Registration failed: " + (data.message || data.error));
+              window.Swal.fire({ title: 'Registration Failed', text: data.message || data.error, icon: 'error', confirmButtonColor: '#1e5aa8' });
           }
       } catch (error) {
           console.error("Error:", error);
-          alert("Network error occurred.");
+          window.Swal.fire({ title: 'Network Error', text: 'Unable to connect to the server.', icon: 'error', confirmButtonColor: '#1e5aa8' });
       } finally {
           setSaving(false);
           setConfirmOpen(false);

@@ -365,7 +365,7 @@ function RegistrationModal({ event, onClose, onConfirm }) {
   const handleConfirm = () => {
     for (let i = 0; i < companions.length; i++) {
       if (!companions[i].name.trim()) {
-        alert(`Please enter a name for companion #${i + 1}`);
+        window.Swal.fire('Missing Name', `Please enter a name for companion #${i + 1}`, 'warning');
         return;
       }
     }
@@ -1015,19 +1015,18 @@ const [events, setEvents] = useState([]);
   const handleRegister = async (form) => {
     const payload = { name: form.name, email: form.email.toLowerCase().trim(), password: form.password, university: form.university || "" };
     try {
-      const response = await fetch(`${API_BASE_URL}/register_user`, {
+      const response = await fetch(`${API_BASE}/register_user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const result = await response.json();
       if (result.success) { 
-        // Force a login to get the JWT token
         await handleLogin({ email: payload.email, password: payload.password });
-        alert("Account created!"); 
+        window.Swal.fire({ title: 'Welcome!', text: 'Account created successfully!', icon: 'success', timer: 2000, showConfirmButton: false });
       }
-      else alert("Registration Failed: " + result.message);
-    } catch (err) { alert("Unable to connect to server."); }
+      else window.Swal.fire({ title: 'Registration Failed', text: result.message, icon: 'error', confirmButtonColor: '#1e5aa8' });
+    } catch (err) { window.Swal.fire({ title: 'Network Error', text: 'Unable to connect to server.', icon: 'error', confirmButtonColor: '#1e5aa8' }); }
   };
 
   // --- 2. REGISTRATION HANDLER MODIFIED TO SUPPORT REFRESH ---
@@ -1084,8 +1083,8 @@ const [events, setEvents] = useState([]);
 
   // SECURE: Attach token to paper submission upload
   const handleCreateSubmission = async ({ title, track, abstract, file, eventId = null }) => {
-    if (!user) return alert("Login first.");
-    if (!file) return alert("Please attach a PDF file.");
+    if (!user) { window.Swal.fire('Authentication Required', 'Please login first.', 'warning'); return; }
+    if (!file) { window.Swal.fire('Missing File', 'Please attach a PDF file.', 'warning'); return; }
     
     const formData = new FormData();
     formData.append("user_email", user.email);
@@ -1095,20 +1094,18 @@ const [events, setEvents] = useState([]);
     formData.append("file", file); 
     
     try {
-      const token = localStorage.getItem('conexus_token'); // SECURE: Get the badge
-      const response = await fetch(`${API_BASE_URL}/submissions`, { 
+      const token = localStorage.getItem('conexus_token'); 
+      const response = await fetch(`${API_BASE}/submissions`, { 
           method: 'POST', 
-          headers: {
-              'Authorization': `Bearer ${token}` // SECURE: Attach Token (DO NOT ADD CONTENT-TYPE FOR FORMDATA)
-          },
+          headers: { 'Authorization': `Bearer ${token}` },
           body: formData 
       });
       const res = await response.json();
       if (res.success) {
         setSubmissions(p => [{ id: res.id, userEmail: user.email, eventId, title, track, abstract, fileName: file.name, status: "under_review" }, ...p]);
         return res;
-      } else { alert("Submission failed: " + res.message); }
-    } catch (err) { alert("Submission error."); }
+      } else { window.Swal.fire('Submission failed', res.message, 'error'); }
+    } catch (err) { window.Swal.fire('Error', 'Submission error.', 'error'); }
   };
 
  // SECURE: Attach token to loading user's previous submissions + Auto Refresh

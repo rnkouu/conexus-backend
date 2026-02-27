@@ -2074,10 +2074,21 @@ Notes / Flags
     };
     
     const handleDeleteEvent = async (id) => { 
-        if (confirm("Delete event?")) { 
+        const result = await window.Swal.fire({
+            title: 'Delete event?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444', // Red for delete
+            cancelButtonColor: '#6b7280',  // Gray for cancel
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (result.isConfirmed) { 
             setEvents(prev => prev.filter(e => e.id !== id));
             try {
                 await fetch(`${API_BASE}/delete_event/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+                window.Swal.fire({ title: 'Deleted!', text: 'The event has been deleted.', icon: 'success', timer: 1500, showConfirmButton: false });
             } catch (e) {
                 loadData(); 
             }
