@@ -577,7 +577,7 @@ function SingleEventPage({ event, onBack, onRegisterClick }) {
   );
 }
 
-function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
+function PublicEventsPage({ events, user, registrations = [], loading, onBack, onRegisterClick }) {
   // 1. State for the filter
   const [filterMode, setFilterMode] = useState("All");
 
@@ -591,7 +591,6 @@ function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
     <section className="relative px-4 py-12 max-w-7xl mx-auto">
       <Breadcrumbs items={[{ label: "Home", onClick: onBack }, { label: "Upcoming events" }]} />
 
-      {/* Header & Controls */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
         <div>
           <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand">Upcoming events</h2>
@@ -600,7 +599,6 @@ function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
           </p>
         </div>
 
-        {/* --- NEW: MODE DROPDOWN --- */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <div className="relative">
                 <select 
@@ -613,7 +611,6 @@ function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
                     <option value="Virtual">💻 Virtual / Online</option>
                     <option value="Hybrid">🌐 Hybrid</option>
                 </select>
-                {/* Custom arrow icon for style */}
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
                 </div>
@@ -625,99 +622,75 @@ function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
         </div>
       </div>
 
-      {/* Event Grid */}
       {loading ? (
         <div className="flex justify-center py-20"><div className="spinner" /></div>
       ) : list.length === 0 ? (
         <div className="p-12 text-center bg-gray-50 rounded-[2rem] border border-dashed border-gray-200">
             <p className="text-gray-400 font-bold text-lg">No events found.</p>
-            <p className="text-gray-400 text-sm mt-1">Try changing the filter or check back later.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {list.map((event, idx) => (
-            <article
-              key={event.id || idx}
-              className="hover-card relative overflow-hidden p-6 rounded-2xl u-card flex flex-col h-full bg-white border border-gray-100 shadow-sm transition-all animate-fade-in-up"
-              style={{ animationDelay: `${idx * 50}ms` }}
-            >
-              <div className="absolute top-0 left-0 right-0 h-[4px] bg-[var(--u-gold)]" />
-              
-              {/* Header: Title and Type Badge */}
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <h3 className="font-extrabold text-lg text-brand leading-snug line-clamp-2" title={event.title}>{event.title}</h3>
-                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">
-                  {event.type || "Event"}
-                </span>
-              </div>
-
-              <p className="text-xs text-gray-600 mb-5 line-clamp-2 flex-1">{event.description}</p>
-
-              {/* Info Grid */}
-              <div className="space-y-2 text-xs text-gray-700 bg-gray-50/50 p-3 rounded-xl border border-gray-100 mb-5">
-                <div className="flex items-center gap-2">
-                    <span className="text-base">📅</span> 
-                    <span className="font-semibold">{formatDateRange(event.startDate, event.endDate)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-base">📍</span> 
-                    <span className="truncate">{event.location}</span>
-                </div>
+          {list.map((event, idx) => {
+            // FIX: Define registration check inside the map
+            const isRegistered = registrations.some(r => String(r.eventId) === String(event.id));
+            
+            return (
+              <article
+                key={event.id || idx}
+                className="hover-card relative overflow-hidden p-6 rounded-2xl u-card flex flex-col h-full bg-white border border-gray-100 shadow-sm transition-all animate-fade-in-up"
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-[4px] bg-[var(--u-gold)]" />
                 
-                {/* Mode Badge - Dynamic Colors */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Mode:</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                        event.mode === 'Virtual' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                        event.mode === 'Hybrid' ? 'bg-teal-50 text-teal-600 border-teal-100' :
-                        'bg-emerald-50 text-emerald-600 border-emerald-100'
-                    }`}>
-                        {event.mode || "On-site"}
-                    </span>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <h3 className="font-extrabold text-lg text-brand leading-snug line-clamp-2" title={event.title}>{event.title}</h3>
+                  <span className="shrink-0 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">
+                    {event.type || "Event"}
+                  </span>
                 </div>
-              </div>
 
-              {/* Footer: Tags and Register Button */}
-              <div className="mt-auto flex items-center justify-between gap-3">
-                 <div className="flex flex-wrap gap-1">
-                    {(event.tags || []).slice(0, 2).map((tag) => (
-                      <span key={tag} className="px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[9px] font-bold text-gray-500 uppercase tracking-wider">
-                        {tag}
-                      </span>
-                    ))}
-                 </div>
-                 
-                 {/* HIDE IF ADMIN */}
-                 {user?.role !== 'admin' && (
-                   <button
-                    type="button"
-                    onClick={() => onRegisterClick(event)}
-                    className="px-5 py-2.5 rounded-xl u-btn-gold text-xs font-extrabold transition u-sweep relative overflow-hidden shadow-sm hover:shadow-md"
-                   >
-                     Register
-                   </button>
-                 )}
-                 
-              </div>
-            </article>
-          ))}
+                <p className="text-xs text-gray-600 mb-5 line-clamp-2 flex-1">{event.description}</p>
+
+                <div className="space-y-2 text-xs text-gray-700 bg-gray-50/50 p-3 rounded-xl border border-gray-100 mb-5">
+                  <div className="flex items-center gap-2">
+                      <span className="text-base">📅</span> 
+                      <span className="font-semibold">{formatDateRange(event.startDate, event.endDate)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <span className="text-base">📍</span> 
+                      <span className="truncate">{event.location}</span>
+                  </div>
+                </div>
+
+                <div className="mt-auto flex items-center justify-between gap-3">
+                   <div className="flex flex-wrap gap-1">
+                      {(event.tags || []).slice(0, 2).map((tag) => (
+                        <span key={tag} className="px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[9px] font-bold text-gray-500 uppercase tracking-wider">{tag}</span>
+                      ))}
+                   </div>
+                   
+                   {/* HIDE IF ADMIN, DISABLE IF ALREADY REGISTERED */}
+                   {user?.role !== 'admin' && (
+                     isRegistered ? (
+                       <button disabled className="px-5 py-2.5 rounded-xl bg-gray-200 text-gray-500 text-xs font-extrabold shadow-sm cursor-not-allowed">
+                         Registered
+                       </button>
+                     ) : (
+                       <button
+                        type="button"
+                        onClick={() => onRegisterClick(event)}
+                        className="px-5 py-2.5 rounded-xl u-btn-gold text-xs font-extrabold transition u-sweep relative overflow-hidden shadow-sm hover:shadow-md"
+                       >
+                         Register
+                       </button>
+                     )
+                   )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
-    </section>
-  );
-}
-
-function Section({ title, subtitle, children }) {
-  return (
-    <section className="relative section-wash px-4 py-14">
-      <div className="max-w-7xl mx-auto">
-        <div className="reveal show mb-8 text-center">
-          <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand">{title}</h2>
-          {subtitle ? <p className="text-gray-600 text-sm md:text-base mt-2">{subtitle}</p> : null}
-          <div className="mx-auto mt-4 h-[3px] w-16 bg-[var(--u-gold)] rounded-full u-pulse" />
-        </div>
-        {children}
-      </div>
     </section>
   );
 }
@@ -1251,7 +1224,7 @@ const [events, setEvents] = useState([]);
 
   let inner = null;
   if (view === "nfc-profile") inner = <NfcProfileWrapper slug={nfcSlug} />;
-  else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
+ else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} user={user} registrations={registrations} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
   else if (view === "landing") inner = <>
     <LandingContent
       events={events}
@@ -1269,7 +1242,7 @@ const [events, setEvents] = useState([]);
       <FaqAccordion/>
     </section>
   </>;
-  else if (view === "public-events") inner = <PublicEventsPage events={events} user={user} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={(evt) => user ? handleRegisterForEvent(evt) : setView("auth")}/>;
+  else if (view === "public-events") inner = <PublicEventsPage events={events} user={user} registrations={registrations} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={(evt) => user ? handleRegisterForEvent(evt) : setView("auth")}/>;
   else if (view === "auth") inner = <AuthPage onBack={() => setView("landing")} onLogin={handleLogin} onRegister={handleRegister}/>;
   // 3. UPDATED: Passing handleRegisterForEvent as the onRegister prop. 
   // Since we modified handleRegisterForEvent to handle empty args as a refresh, this fixes the white screen.
