@@ -344,151 +344,83 @@ function SimpleCarousel({ count, index, onPrev, onNext, onSelect, children }) {
    LEGACY REGISTRATION MODAL (For non-participant flows)
    - Kept for backward compatibility, but safer now.
    ========================= */
-/* =========================
-   MODERN REGISTRATION MODAL (Global)
-   ========================= */
-function RegistrationModal({ event, user, onClose, onSuccess }) {
-  const [formData, setFormData] = useState({
-    fullName: user?.name || "",
-    email: user?.email || "",
-    university: user?.university || "",
-    contact: user?.phone || "",
-  });
-  const [participantsCount, setParticipantsCount] = useState(1);
+function RegistrationModal({ event, onClose, onConfirm }) {
   const [companions, setCompanions] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [saving, setSaving] = useState(false);
 
-  const incrementParticipants = () => {
-    setParticipantsCount(prev => prev + 1);
-    setCompanions(prev => [...prev, { name: "", relation: "", phone: "", email: "" }]);
+  if (!event) return null; // Safety check for white screen issue
+
+  const addCompanion = () => {
+    setCompanions([...companions, { name: "", relation: "", phone: "", email: "" }]);
   };
 
-  const decrementParticipants = () => {
-    if (participantsCount > 1) {
-      setParticipantsCount(prev => prev - 1);
-      setCompanions(prev => prev.slice(0, -1));
-    }
+  const removeCompanion = (index) => {
+    setCompanions(companions.filter((_, i) => i !== index));
   };
 
-  const handleCompanionChange = (index, field, value) => {
-    const updated = [...companions];
-    updated[index] = { ...updated[index], [field]: value };
+  const updateComp = (index, field, value) => {
+    const updated = companions.map((c, i) => (i === index ? { ...c, [field]: value } : c));
     setCompanions(updated);
   };
 
-  const handleSubmit = async (e) => {
-      e.preventDefault();
-      if (!selectedFile) {
-          window.Swal.fire({ title: 'ID Required', text: 'Please upload a valid ID to proceed.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
-          return;
+  const handleConfirm = () => {
+    for (let i = 0; i < companions.length; i++) {
+      if (!companions[i].name.trim()) {
+        window.Swal.fire('Missing Name', `Please enter a name for companion #${i + 1}`, 'warning');
+        return;
       }
-
-      setSaving(true);
-      try {
-          const payload = new FormData();
-          payload.append('user_email', formData.email);
-          payload.append('event_id', event.id);
-          payload.append('valid_id', selectedFile);
-          payload.append('companions', JSON.stringify(companions));
-
-          const token = localStorage.getItem('conexus_token');
-          const response = await fetch(`${API_BASE_URL}/register`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` },
-              body: payload,
-          });
-
-          const data = await response.json();
-          if (data.success) {
-              window.Swal.fire({ title: 'Registration Submitted!', text: 'Please wait for admin approval.', icon: 'success', confirmButtonColor: '#1e5aa8' });
-              onSuccess(); // Close modal and refresh data automatically
-          } else {
-              window.Swal.fire({ title: 'Registration Failed', text: data.message || data.error, icon: 'error', confirmButtonColor: '#1e5aa8' });
-          }
-      } catch (error) {
-          window.Swal.fire({ title: 'Network Error', text: 'Unable to connect to the server.', icon: 'error', confirmButtonColor: '#1e5aa8' });
-      } finally {
-          setSaving(false);
-      }
+    }
+    onConfirm(companions);
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
-        <div className="w-full max-w-xl animate-fade-in-up my-auto" onClick={e => e.stopPropagation()}>
-          <div className="rounded-[2.5rem] overflow-hidden u-card">
-             <div className="px-8 py-6 bg-[var(--u-navy)] text-white relative">
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--u-gold)]" />
-                <h3 className="text-xl md:text-2xl font-extrabold">Event Registration</h3>
-                <p className="text-xs text-white/75 mt-1">Enrolling in: <strong className="text-[var(--u-gold)]">{event.title}</strong></p>
-             </div>
-             <form onSubmit={handleSubmit} className="p-8 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Full Name</label><input className="w-full p-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-brand" value={formData.fullName} onChange={e => setFormData(p=>({...p, fullName: e.target.value}))} required /></div>
-                  <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email</label><input className="w-full p-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-brand" type="email" value={formData.email} onChange={e => setFormData(p=>({...p, email: e.target.value}))} required /></div>
-                  <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">University/Affiliation</label><input className="w-full p-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-brand" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} /></div>
-                  <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Contact Number</label><input className="w-full p-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-brand" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} /></div>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="w-full max-w-xl animate-fade-in-up my-auto">
+        <div className="rounded-3xl overflow-hidden u-card">
+          <div className="px-8 py-6 bg-[var(--u-navy)] text-white relative">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--u-gold)]" />
+            <h3 className="text-xl md:text-2xl font-extrabold">Event Registration</h3>
+            <p className="text-xs md:text-sm text-white/75 mt-1">
+              Registering for: <strong className="text-[var(--u-gold)]">{event.title}</strong>
+            </p>
+          </div>
 
-                  <div className="col-span-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID (Required)</label>
-                      <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="w-full bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer text-sm p-2 border border-gray-200 rounded-xl"
-                          onChange={(e) => setSelectedFile(e.target.files[0])}
-                          required
-                      />
-                      <p className="text-[9px] text-gray-400 mt-1">Government or School ID required for approval.</p>
-                  </div>
-                </div>
+          <div className="p-8">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">Associates / Companions</p>
+              <button onClick={addCompanion} className="px-3 py-1.5 rounded-lg text-xs font-extrabold u-btn-gold transition u-sweep relative overflow-hidden">
+                + Add Person
+              </button>
+            </div>
 
-                <div className="flex items-center justify-between pt-6 border-t border-gray-100">
-                  <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-black text-gray-400 uppercase">Attendees</span>
-                      <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                         <button type="button" onClick={decrementParticipants} className="w-8 h-8 font-bold">-</button>
-                         <span className="px-4 font-black text-brand">{participantsCount}</span>
-                         <button type="button" onClick={incrementParticipants} className="w-8 h-8 font-bold">+</button>
-                      </div>
-                  </div>
-                  <div className="flex gap-2">
-                      <button type="button" onClick={onClose} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700 transition">Cancel</button>
-                      <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold shadow-lg u-sweep relative overflow-hidden disabled:opacity-50">
-                        {saving ? "Processing..." : "Proceed"}
-                      </button>
-                  </div>
-                </div>
-
-                {companions.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in-up">
-                    <h4 className="text-xs font-black text-brand uppercase mb-3">Additional Attendees</h4>
-                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2 scrollbar-hide">
-                      {companions.map((comp, index) => (
-                        <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                          <p className="text-[10px] font-bold text-blue-500 uppercase mb-2">Guest {index + 1}</p>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="col-span-2 sm:col-span-1">
-                              <input className="w-full p-2.5 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand" placeholder="Full Name" value={comp.name} onChange={e => handleCompanionChange(index, "name", e.target.value)} required />
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <input className="w-full p-2.5 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand" placeholder="Relation" value={comp.relation} onChange={e => handleCompanionChange(index, "relation", e.target.value)} />
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <input className="w-full p-2.5 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand" placeholder="Email (Optional)" value={comp.email} onChange={e => handleCompanionChange(index, "email", e.target.value)} />
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <input className="w-full p-2.5 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand" placeholder="Phone (Optional)" value={comp.phone} onChange={e => handleCompanionChange(index, "phone", e.target.value)} />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+            <div className="space-y-4 max-h-[42vh] overflow-y-auto pr-2 scrollbar-hide">
+              {companions.length === 0 && (
+                <p className="text-sm text-gray-500 italic text-center py-6 border-2 border-dashed border-gray-200 rounded-2xl bg-white">
+                  No companions added. Click "+ Add Person" if someone is coming with you.
+                </p>
+              )}
+              {companions.map((c, idx) => (
+                <div key={idx} className="p-5 rounded-2xl border border-gray-200 bg-white relative animate-fade-in-up hover-card">
+                  <button onClick={() => removeCompanion(idx)} className="absolute top-4 right-4 text-rose-600 font-extrabold text-xs hover:underline">Remove</button>
+                  <div className="space-y-3">
+                    <input type="text" placeholder="Full Name (Required)" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[var(--u-blue)] outline-none bg-white" value={c.name} onChange={(e) => updateComp(idx, "name", e.target.value)} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input type="text" placeholder="Relation (e.g. Wife)" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[var(--u-blue)] outline-none bg-white" value={c.relation} onChange={(e) => updateComp(idx, "relation", e.target.value)} />
+                      <input type="text" placeholder="Contact Number" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[var(--u-blue)] outline-none bg-white" value={c.phone} onChange={(e) => updateComp(idx, "phone", e.target.value)} />
                     </div>
+                    <input type="email" placeholder="Email Address" className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[var(--u-blue)] outline-none bg-white" value={c.email} onChange={(e) => updateComp(idx, "email", e.target.value)} />
                   </div>
-                )}
-             </form>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={handleConfirm} className="flex-1 py-3 rounded-xl grad-btn text-white text-sm font-extrabold shadow-lg u-sweep relative overflow-hidden">Confirm Registration</button>
+            </div>
           </div>
         </div>
       </div>
+    </div>
   );
 }
 
@@ -542,10 +474,6 @@ function SingleEventPage({ event, onBack, onRegisterClick }) {
                 <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-accent2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>{event.location}</span>
                 <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-accent3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>{event.mode || "On-site"}</span>
               </div>
-              {/* HIDE IF ADMIN */}
-            {user?.role !== 'admin' && (
-              <button type="button" onClick={() => onRegisterClick(event)} className="px-8 py-3 rounded-xl grad-btn text-white font-extrabold shadow-lg u-sweep relative overflow-hidden">Register Now</button>
-            )}
             </div>
             <button type="button" onClick={() => onRegisterClick(event)} className="px-8 py-3 rounded-xl grad-btn text-white font-extrabold shadow-lg u-sweep relative overflow-hidden">Register Now</button>
           </div>
@@ -577,7 +505,7 @@ function SingleEventPage({ event, onBack, onRegisterClick }) {
   );
 }
 
-function PublicEventsPage({ events, user, registrations = [], loading, onBack, onRegisterClick }) {
+function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
   // 1. State for the filter
   const [filterMode, setFilterMode] = useState("All");
 
@@ -591,6 +519,7 @@ function PublicEventsPage({ events, user, registrations = [], loading, onBack, o
     <section className="relative px-4 py-12 max-w-7xl mx-auto">
       <Breadcrumbs items={[{ label: "Home", onClick: onBack }, { label: "Upcoming events" }]} />
 
+      {/* Header & Controls */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
         <div>
           <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand">Upcoming events</h2>
@@ -599,6 +528,7 @@ function PublicEventsPage({ events, user, registrations = [], loading, onBack, o
           </p>
         </div>
 
+        {/* --- NEW: MODE DROPDOWN --- */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <div className="relative">
                 <select 
@@ -611,6 +541,7 @@ function PublicEventsPage({ events, user, registrations = [], loading, onBack, o
                     <option value="Virtual">💻 Virtual / Online</option>
                     <option value="Hybrid">🌐 Hybrid</option>
                 </select>
+                {/* Custom arrow icon for style */}
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
                 </div>
@@ -622,75 +553,95 @@ function PublicEventsPage({ events, user, registrations = [], loading, onBack, o
         </div>
       </div>
 
+      {/* Event Grid */}
       {loading ? (
         <div className="flex justify-center py-20"><div className="spinner" /></div>
       ) : list.length === 0 ? (
         <div className="p-12 text-center bg-gray-50 rounded-[2rem] border border-dashed border-gray-200">
             <p className="text-gray-400 font-bold text-lg">No events found.</p>
+            <p className="text-gray-400 text-sm mt-1">Try changing the filter or check back later.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {list.map((event, idx) => {
-            // FIX: Define registration check inside the map
-            const isRegistered = registrations.some(r => String(r.eventId) === String(event.id));
-            
-            return (
-              <article
-                key={event.id || idx}
-                className="hover-card relative overflow-hidden p-6 rounded-2xl u-card flex flex-col h-full bg-white border border-gray-100 shadow-sm transition-all animate-fade-in-up"
-                style={{ animationDelay: `${idx * 50}ms` }}
-              >
-                <div className="absolute top-0 left-0 right-0 h-[4px] bg-[var(--u-gold)]" />
+          {list.map((event, idx) => (
+            <article
+              key={event.id || idx}
+              className="hover-card relative overflow-hidden p-6 rounded-2xl u-card flex flex-col h-full bg-white border border-gray-100 shadow-sm transition-all animate-fade-in-up"
+              style={{ animationDelay: `${idx * 50}ms` }}
+            >
+              <div className="absolute top-0 left-0 right-0 h-[4px] bg-[var(--u-gold)]" />
+              
+              {/* Header: Title and Type Badge */}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <h3 className="font-extrabold text-lg text-brand leading-snug line-clamp-2" title={event.title}>{event.title}</h3>
+                <span className="shrink-0 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">
+                  {event.type || "Event"}
+                </span>
+              </div>
+
+              <p className="text-xs text-gray-600 mb-5 line-clamp-2 flex-1">{event.description}</p>
+
+              {/* Info Grid */}
+              <div className="space-y-2 text-xs text-gray-700 bg-gray-50/50 p-3 rounded-xl border border-gray-100 mb-5">
+                <div className="flex items-center gap-2">
+                    <span className="text-base">📅</span> 
+                    <span className="font-semibold">{formatDateRange(event.startDate, event.endDate)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-base">📍</span> 
+                    <span className="truncate">{event.location}</span>
+                </div>
                 
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <h3 className="font-extrabold text-lg text-brand leading-snug line-clamp-2" title={event.title}>{event.title}</h3>
-                  <span className="shrink-0 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">
-                    {event.type || "Event"}
-                  </span>
+                {/* Mode Badge - Dynamic Colors */}
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Mode:</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                        event.mode === 'Virtual' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                        event.mode === 'Hybrid' ? 'bg-teal-50 text-teal-600 border-teal-100' :
+                        'bg-emerald-50 text-emerald-600 border-emerald-100'
+                    }`}>
+                        {event.mode || "On-site"}
+                    </span>
                 </div>
+              </div>
 
-                <p className="text-xs text-gray-600 mb-5 line-clamp-2 flex-1">{event.description}</p>
-
-                <div className="space-y-2 text-xs text-gray-700 bg-gray-50/50 p-3 rounded-xl border border-gray-100 mb-5">
-                  <div className="flex items-center gap-2">
-                      <span className="text-base">📅</span> 
-                      <span className="font-semibold">{formatDateRange(event.startDate, event.endDate)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <span className="text-base">📍</span> 
-                      <span className="truncate">{event.location}</span>
-                  </div>
-                </div>
-
-                <div className="mt-auto flex items-center justify-between gap-3">
-                   <div className="flex flex-wrap gap-1">
-                      {(event.tags || []).slice(0, 2).map((tag) => (
-                        <span key={tag} className="px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[9px] font-bold text-gray-500 uppercase tracking-wider">{tag}</span>
-                      ))}
-                   </div>
-                   
-                   {/* HIDE IF ADMIN, DISABLE IF ALREADY REGISTERED */}
-                   {user?.role !== 'admin' && (
-                     isRegistered ? (
-                       <button disabled className="px-5 py-2.5 rounded-xl bg-gray-200 text-gray-500 text-xs font-extrabold shadow-sm cursor-not-allowed">
-                         Registered
-                       </button>
-                     ) : (
-                       <button
-                        type="button"
-                        onClick={() => onRegisterClick(event)}
-                        className="px-5 py-2.5 rounded-xl u-btn-gold text-xs font-extrabold transition u-sweep relative overflow-hidden shadow-sm hover:shadow-md"
-                       >
-                         Register
-                       </button>
-                     )
-                   )}
-                </div>
-              </article>
-            );
-          })}
+              {/* Footer: Tags and Register Button */}
+              <div className="mt-auto flex items-center justify-between gap-3">
+                 <div className="flex flex-wrap gap-1">
+                    {(event.tags || []).slice(0, 2).map((tag) => (
+                      <span key={tag} className="px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[9px] font-bold text-gray-500 uppercase tracking-wider">
+                        {tag}
+                      </span>
+                    ))}
+                 </div>
+                 
+                 <button
+                  type="button"
+                  onClick={() => onRegisterClick(event)}
+                  className="px-5 py-2.5 rounded-xl u-btn-gold text-xs font-extrabold transition u-sweep relative overflow-hidden shadow-sm hover:shadow-md"
+                >
+                  Register
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function Section({ title, subtitle, children }) {
+  return (
+    <section className="relative section-wash px-4 py-14">
+      <div className="max-w-7xl mx-auto">
+        <div className="reveal show mb-8 text-center">
+          <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand">{title}</h2>
+          {subtitle ? <p className="text-gray-600 text-sm md:text-base mt-2">{subtitle}</p> : null}
+          <div className="mx-auto mt-4 h-[3px] w-16 bg-[var(--u-gold)] rounded-full u-pulse" />
+        </div>
+        {children}
+      </div>
     </section>
   );
 }
@@ -800,29 +751,10 @@ function Nav({ view, user, onNavigate, onLogout }) {
         <button type="button" onClick={() => onNavigate("landing")} className="u-nav-brand flex items-center gap-3 font-display text-lg md:text-xl font-extrabold hover:opacity-90 transition">
           <span className="u-nav-brand-mark" /><span>Conexus</span>
         </button>
-       <nav className="flex items-center gap-4 text-[14px]">
+        <nav className="flex items-center gap-4 text-[14px]">
           <button type="button" onClick={() => onNavigate("landing")} className="u-nav-link transition font-semibold">Home</button>
-          
-          {/* 1. Events button ALWAYS goes to the public events page */}
-          <button type="button" onClick={() => onNavigate("public-events")} className="u-nav-link transition font-semibold">Events</button>
-          
-          {/* 2. Dashboard button ONLY shows up if the user is logged in */}
-          {user && (
-            <button 
-              type="button" 
-              onClick={() => { 
-                if (user.role === "presenter") onNavigate("presenter"); 
-                else if (user.role === "admin") onNavigate("admin"); 
-                else onNavigate("participant"); 
-              }} 
-              className="u-nav-link transition font-semibold text-[var(--u-gold)]"
-            >
-              Dashboard
-            </button>
-          )}
-
+          <button type="button" onClick={() => { if (!user) onNavigate("public-events"); else if (user.role === "presenter") onNavigate("presenter"); else if (user.role === "admin") onNavigate("admin"); else onNavigate("participant"); }} className="u-nav-link transition font-semibold">Events</button>
           <button type="button" onClick={() => onNavigate("landing-faq")} className="u-nav-link transition font-semibold">FAQ</button>
-          
           {!user ? (
             <button type="button" onClick={() => onNavigate("auth")} className="px-4 py-2 rounded-lg u-btn-gold font-extrabold text-sm transition u-sweep relative overflow-hidden">Login / Register</button>
           ) : (
@@ -1224,7 +1156,7 @@ const [events, setEvents] = useState([]);
 
   let inner = null;
   if (view === "nfc-profile") inner = <NfcProfileWrapper slug={nfcSlug} />;
- else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} user={user} registrations={registrations} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
+  else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
   else if (view === "landing") inner = <>
     <LandingContent
       events={events}
@@ -1242,7 +1174,7 @@ const [events, setEvents] = useState([]);
       <FaqAccordion/>
     </section>
   </>;
-  else if (view === "public-events") inner = <PublicEventsPage events={events} user={user} registrations={registrations} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={(evt) => user ? handleRegisterForEvent(evt) : setView("auth")}/>;
+  else if (view === "public-events") inner = <PublicEventsPage events={events} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={() => setView("auth")}/>;
   else if (view === "auth") inner = <AuthPage onBack={() => setView("landing")} onLogin={handleLogin} onRegister={handleRegister}/>;
   // 3. UPDATED: Passing handleRegisterForEvent as the onRegister prop. 
   // Since we modified handleRegisterForEvent to handle empty args as a refresh, this fixes the white screen.
@@ -1254,18 +1186,8 @@ const [events, setEvents] = useState([]);
   return (
     <Shell view={view} user={user} onNavigate={navigate} onLogout={handleLogout}>
       {inner}
-      {/* 4. SAFETY CHECK: Only show modern modal if targetEvent is set */}
-      {regModalOpen && targetEvent && (
-        <RegistrationModal 
-          event={targetEvent} 
-          user={user} 
-          onClose={() => setRegModalOpen(false)} 
-          onSuccess={() => {
-              setRegModalOpen(false);
-              loadRegistrations(); // Refresh the table after upload
-          }}
-        />
-      )}
+      {/* 4. SAFETY CHECK: Only show legacy modal if targetEvent is set */}
+      {regModalOpen && targetEvent && <RegistrationModal event={targetEvent} onClose={() => setRegModalOpen(false)} onConfirm={handleFinalRegister}/>}
     </Shell>
   );
 }
