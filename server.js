@@ -364,7 +364,7 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
         if(err) return res.status(500).json({ success: false, error: err.message });
         const insertId = result.insertId;
 
-        // --- NEW OJS INTEGRATION BRIDGE ---
+        // --- NEW OJS INTEGRATION BRIDGE WITH FIREWALL DISGUISE ---
         try {
             console.log("Starting OJS Integration Sync...");
 
@@ -382,7 +382,10 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
                 {
                     headers: {
                         'Authorization': `Bearer ${OJS_CONFIG.apiKey}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        // --- THE DISGUISE ---
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'application/json, text/plain, */*'
                     }
                 }
             );
@@ -402,7 +405,9 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
                     {
                         headers: {
                             ...form.getHeaders(),
-                            'Authorization': `Bearer ${OJS_CONFIG.apiKey}`
+                            'Authorization': `Bearer ${OJS_CONFIG.apiKey}`,
+                            // --- THE DISGUISE ---
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                         }
                     }
                 );
@@ -419,7 +424,7 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
         }
         // --- END OJS INTEGRATION BRIDGE ---
     }); 
-}); 
+});
 
 // SECURED: Admins see all, participants only see their own
 app.get('/api/submissions', verifyToken, (req, res) => {
