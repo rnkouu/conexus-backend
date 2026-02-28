@@ -403,7 +403,7 @@
 
     const upcomingEvents = Array.isArray(events) ? events.filter((e) => !e.past) : [];
     
-    // MERGE PROP DATA WITH LIVE DATA 
+    // MERGE PROP DATA WITH LIVE DATA AND INCLUDE CERTIFICATE TIMESTAMP
     const baseEvents = Array.isArray(registrations) ? registrations : [];
     const myEvents = baseEvents.map(baseReg => {
         const liveMatch = liveRegs.find(live => String(live.id) === String(baseReg.id));
@@ -411,7 +411,8 @@
             ...baseReg,
             room_id: liveMatch?.room_id || liveMatch?.roomId || baseReg.roomId || baseReg.room_id || null,
             adminNote: liveMatch?.admin_note || baseReg.adminNote || null,
-            status: liveMatch?.status || baseReg.status
+            status: liveMatch?.status || baseReg.status,
+            certificate_issued_at: liveMatch?.certificate_issued_at || baseReg.certificate_issued_at || baseReg.certificateIssuedAt || null
         };
     });
 
@@ -536,6 +537,62 @@
       }
     };
 
+    // --- NEW: GENERATE & DOWNLOAD CERTIFICATE FUNCTION ---
+    const handleDownloadCertificate = (reg) => {
+        const printWindow = window.open('', '_blank');
+        const issueDate = reg.certificate_issued_at ? new Date(reg.certificate_issued_at).toLocaleDateString() : new Date().toLocaleDateString();
+        
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Certificate - ${reg.eventTitle}</title>
+                    <style>
+                        body { font-family: 'Segoe UI', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #e5e7eb; }
+                        .cert { width: 800px; height: 600px; background: white; padding: 20px; box-sizing: border-box; position: relative; text-align: center; }
+                        .cert-inner { border: 4px solid #061f38; height: 100%; box-sizing: border-box; padding: 40px; position: relative; }
+                        .cert-inner::before { content: ''; position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 1px solid #061f38; pointer-events: none; }
+                        h1 { color: #061f38; font-size: 38px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase; margin-top: 40px; margin-bottom: 20px; }
+                        .subtitle { font-style: italic; color: #d97706; font-size: 16px; margin-bottom: 40px; }
+                        .name { font-size: 42px; color: #111; border-bottom: 1px solid #aaa; display: inline-block; width: 70%; padding-bottom: 10px; margin-bottom: 30px; font-weight: 500; }
+                        .reason { font-size: 16px; color: #555; margin-bottom: 15px; }
+                        .event { font-size: 24px; color: #111; font-weight: bold; margin-bottom: 15px; }
+                        .date { font-size: 14px; color: #777; }
+                        .footer { position: absolute; bottom: 50px; left: 50px; right: 50px; display: flex; justify-content: space-between; align-items: flex-end; }
+                        .signature { border-top: 1px solid #111; width: 200px; padding-top: 5px; font-size: 14px; font-weight: bold; }
+                        .meta { text-align: right; font-size: 10px; color: #999; }
+                        @media print { 
+                            @page { size: landscape; margin: 0; }
+                            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+                            .cert { width: 100%; height: 100%; border: none; } 
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="cert">
+                        <div class="cert-inner">
+                            <h1>Certificate of Participation</h1>
+                            <div class="subtitle">is hereby awarded to</div>
+                            <div class="name">${user?.name || formData?.fullName || "Participant"}</div>
+                            <div class="reason">For active participation in</div>
+                            <div class="event">${reg.eventTitle || "Academic Event"}</div>
+                            <div class="date">${formatDateRange(reg.startDate, reg.endDate)}</div>
+                            
+                            <div class="footer">
+                                <div class="signature">Demo Admin<br><span style="font-weight:normal;font-size:10px;color:#555;">Conexus Events Team</span></div>
+                                <div class="meta">ID: CX-${reg.id}-${Date.now().toString().slice(-6)}<br>Issued: ${issueDate}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                        setTimeout(() => window.print(), 500);
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
       <section className="relative px-4 py-10 max-w-7xl mx-auto animate-fade-in-up">
         {/* Institutional Hero Banner */}
@@ -633,7 +690,7 @@
             </div>
           )}
 
-          {/* --- NEW REGISTRATION GRID WITH SHORTCUT BUTTONS --- */}
+          {/* --- NEW REGISTRATION GRID WITH DYNAMIC CERTIFICATE BUTTON --- */}
           {tab === "my" && (
             <div className="reg-grid animate-fade-in-up">
               {myEvents.length === 0 ? (
@@ -679,7 +736,7 @@
                         </div>
                       </div>
 
-                      <div className="mt-auto pt-6 border-t border-gray-50 flex gap-2">
+                      <div className="mt-auto pt-6 border-t border-gray-50 flex flex-wrap gap-2">
                         <button 
                           onClick={() => setPreviewReg(reg)}
                           className="flex-1 py-3 rounded-xl bg-gray-50 text-gray-600 text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-colors"
@@ -708,6 +765,16 @@
                             Invitation
                           </button>
                         )}
+
+                        {/* --- NEW: DYNAMIC CERTIFICATE BUTTON --- */}
+                        {isApproved && reg.certificate_issued_at && (
+                          <button 
+                            onClick={() => handleDownloadCertificate(reg)}
+                            className="flex-1 min-w-[100%] py-3 rounded-xl bg-[var(--u-gold)] text-[var(--u-navy)] text-[10px] font-black uppercase tracking-widest shadow-md hover:brightness-105 transition-all mt-1"
+                          >
+                            ✨ Download Certificate
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -724,7 +791,7 @@
                   <p className="text-xs text-gray-500 mb-6">Submit your research paper for peer review. Only PDF format is accepted.</p>
                   
                   <form onSubmit={handlePaperSubmit} className="space-y-4">
-                     {/* --- NEW EVENT SELECTION DROPDOWN --- */}
+                     {/* --- EVENT SELECTION DROPDOWN --- */}
                      <div>
                         <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Link to Event</label>
                         <select 
@@ -750,7 +817,6 @@
                         </label>
                      </div>
                      
-                     {/* FIXED BUTTON TEXT */}
                      <button type="submit" disabled={paperSaving} className="grad-btn w-full py-3 rounded-xl text-white font-extrabold u-sweep relative overflow-hidden mt-4">
                        {paperSaving ? "Processing..." : "Submit Paper"}
                      </button>
