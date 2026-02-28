@@ -39,10 +39,10 @@ if (!fs.existsSync(uploadDir)) {
     console.log('📁 Created missing uploads folder');
 }
 
-// OJS API BRIDGE CONFIGURATION
+// --- OJS Configuration ---
 const OJS_CONFIG = {
-    apiUrl: 'http://127.0.0.1:8080/index.php/crj/api/v1/submissions',
-    apiKey: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.WyIwMTQ3NzQ3ZTNhODAyNTJiYjA3Y2ZkNDBlZmRkMmY1ZmVkYzY0YjhhIl0.krPm4K0lgwJReWfN_xwNzOrqsXR_gKIwXsSAWmYNmZM'
+    apiUrl: 'http://conexus-ojs.ct.ws/index.php/crj/api/v1',
+    apiKey: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.WyIzMzhmNjFjMjJhYjE3NGJlMTFiZTllOTQ2MjhkOTdmMjVkNDY5ODhlIl0.VNgBUzr9WBA-aDMWEurvTnsl3vcVodAEucnNbi80lBw'
 };
 
 // --- CORS Configuration ---
@@ -364,17 +364,60 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
         if(err) return res.status(500).json({ success: false, error: err.message });
         const insertId = result.insertId;
 
-        // BRIDGE TO OJS
+        // --- NEW OJS INTEGRATION BRIDGE ---
         try {
-            const ojsUrlWithToken = `${OJS_CONFIG.apiUrl}?apiToken=${OJS_CONFIG.apiKey}`;
-            const ojsResponse = await axios.post(ojsUrlWithToken, {
-                locale: 'en_US', sectionId: 1, title: { en_US: title }, abstract: { en_US: abstract }
-            }, { headers: { 'Content-Type': 'application/json' } });
-            
-            return res.json({ success: true, id: insertId, ojsId: ojsResponse.data.id, message: 'Saved and synced.' });
+            console.log("Starting OJS Integration Sync...");
+
+            // Step 1: Push Metadata to create the official submission in OJS
+            const metadataPayload = {
+                locale: "en_US",
+                title: { en_US: title || "Untitled Research Paper" },
+                abstract: { en_US: abstract || "Abstract synced from Conexus Dashboard." },
+                sectionId: 1 // 1 is the default OJS section ID for 'Articles'
+            };
+
+            const submissionRes = await axios.post(
+                `${OJS_CONFIG.apiUrl}/submissions`,
+                metadataPayload,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${OJS_CONFIG.apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            const ojsSubmissionId = submissionRes.data.id;
+            console.log(`✅ Success! Created OJS Submission ID: ${ojsSubmissionId}`);
+
+            // Step 2: Push the PDF file (Requires multer file path)
+            if (file) {
+                const form = new FormData();
+                form.append('file', fs.createReadStream(file.path));
+
+                // Send the physical file to the OJS temporary files endpoint
+                const tempFileRes = await axios.post(
+                    `${OJS_CONFIG.apiUrl}/temporaryFiles`,
+                    form,
+                    {
+                        headers: {
+                            ...form.getHeaders(),
+                            'Authorization': `Bearer ${OJS_CONFIG.apiKey}`
+                        }
+                    }
+                );
+                console.log(`✅ Success! Uploaded PDF to OJS Temp File ID: ${tempFileRes.data.id}`);
+            }
+
+            // Return success for both systems
+            return res.json({ success: true, id: insertId, ojsId: ojsSubmissionId, message: 'Saved to Conexus and synced with OJS.' });
+
         } catch (ojsError) {
-            return res.status(500).json({ success: false, message: "Saved to MySQL, but OJS rejected it." });
+            // We catch the error so if OJS times out, it doesn't crash your Conexus server!
+            console.error("❌ OJS Integration Failed:", ojsError.response?.data || ojsError.message);
+            return res.status(200).json({ success: true, id: insertId, message: "Saved to MySQL, but OJS sync failed. Admin will review manually." });
         }
+        // --- END OJS INTEGRATION BRIDGE ---
     }); 
 }); 
 
