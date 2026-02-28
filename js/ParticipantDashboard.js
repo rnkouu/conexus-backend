@@ -799,7 +799,7 @@
                            value={paperForm.eventId} 
                            onChange={e => setPaperForm(p => ({...p, eventId: e.target.value}))}
                         >
-                           <option value="">-- Optional: Select Approved Event --</option>
+                           <option value="">-- Select Event --</option>
                            {myEvents.filter(r => r.status === "Approved").map(r => (
                                <option key={r.eventId} value={r.eventId}>{r.eventTitle}</option>
                            ))}
