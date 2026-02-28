@@ -1094,7 +1094,7 @@ const [events, setEvents] = useState([]);
     });
   };
 
-  // SECURE: Attach token to paper submission upload
+// SECURE: Attach token to paper submission upload
   const handleCreateSubmission = async ({ title, track, abstract, file, eventId = null }) => {
     if (!user) { window.Swal.fire('Authentication Required', 'Please login first.', 'warning'); return; }
     if (!file) { window.Swal.fire('Missing File', 'Please attach a PDF file.', 'warning'); return; }
@@ -1108,7 +1108,7 @@ const [events, setEvents] = useState([]);
     
     try {
       const token = localStorage.getItem('conexus_token'); 
-      const response = await fetch(`${API_BASE}/submissions`, { 
+      const response = await fetch(`${API_BASE_URL}/submissions`, { 
           method: 'POST', 
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData 
@@ -1118,7 +1118,10 @@ const [events, setEvents] = useState([]);
         setSubmissions(p => [{ id: res.id, userEmail: user.email, eventId, title, track, abstract, fileName: file.name, status: "under_review" }, ...p]);
         return res;
       } else { window.Swal.fire('Submission failed', res.message, 'error'); }
-    } catch (err) { window.Swal.fire('Error', 'Submission error.', 'error'); }
+    } catch (err) { 
+        console.error("Submission crash:", err);
+        window.Swal.fire('Error', 'Submission error.', 'error'); 
+    }
   };
 
  // SECURE: Attach token to loading user's previous submissions + Auto Refresh
