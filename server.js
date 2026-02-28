@@ -1,4 +1,6 @@
 require('dotenv').config();
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 const express = require('express');
 const path = require('path'); 
 const mysql = require('mysql2');
@@ -8,8 +10,8 @@ const multer = require('multer');
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-const jwt = require('jsonwebtoken'); // NEW: JWT Library
-const nodemailer = require('nodemailer'); // <-- 1. Require Nodemailer
+const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
