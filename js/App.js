@@ -751,10 +751,29 @@ function Nav({ view, user, onNavigate, onLogout }) {
         <button type="button" onClick={() => onNavigate("landing")} className="u-nav-brand flex items-center gap-3 font-display text-lg md:text-xl font-extrabold hover:opacity-90 transition">
           <span className="u-nav-brand-mark" /><span>Conexus</span>
         </button>
-        <nav className="flex items-center gap-4 text-[14px]">
+       <nav className="flex items-center gap-4 text-[14px]">
           <button type="button" onClick={() => onNavigate("landing")} className="u-nav-link transition font-semibold">Home</button>
-          <button type="button" onClick={() => { if (!user) onNavigate("public-events"); else if (user.role === "presenter") onNavigate("presenter"); else if (user.role === "admin") onNavigate("admin"); else onNavigate("participant"); }} className="u-nav-link transition font-semibold">Events</button>
+          
+          {/* 1. Events button ALWAYS goes to the public events page */}
+          <button type="button" onClick={() => onNavigate("public-events")} className="u-nav-link transition font-semibold">Events</button>
+          
+          {/* 2. Dashboard button ONLY shows up if the user is logged in */}
+          {user && (
+            <button 
+              type="button" 
+              onClick={() => { 
+                if (user.role === "presenter") onNavigate("presenter"); 
+                else if (user.role === "admin") onNavigate("admin"); 
+                else onNavigate("participant"); 
+              }} 
+              className="u-nav-link transition font-semibold text-[var(--u-gold)]"
+            >
+              Dashboard
+            </button>
+          )}
+
           <button type="button" onClick={() => onNavigate("landing-faq")} className="u-nav-link transition font-semibold">FAQ</button>
+          
           {!user ? (
             <button type="button" onClick={() => onNavigate("auth")} className="px-4 py-2 rounded-lg u-btn-gold font-extrabold text-sm transition u-sweep relative overflow-hidden">Login / Register</button>
           ) : (
@@ -1174,7 +1193,7 @@ const [events, setEvents] = useState([]);
       <FaqAccordion/>
     </section>
   </>;
-  else if (view === "public-events") inner = <PublicEventsPage events={events} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={() => setView("auth")}/>;
+  else if (view === "public-events") inner = <PublicEventsPage events={events} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={(evt) => user ? handleRegisterForEvent(evt) : setView("auth")}/>;
   else if (view === "auth") inner = <AuthPage onBack={() => setView("landing")} onLogin={handleLogin} onRegister={handleRegister}/>;
   // 3. UPDATED: Passing handleRegisterForEvent as the onRegister prop. 
   // Since we modified handleRegisterForEvent to handle empty args as a refresh, this fixes the white screen.
