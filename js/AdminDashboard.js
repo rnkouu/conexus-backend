@@ -890,7 +890,13 @@
                 <p className="text-base text-gray-500">Snapshot of events and registrations.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-                {/* PREMIUM AI REPORT BUTTON */}
+                {/* 1. CREATE EVENT BUTTON */}
+                <button onClick={onCreateEvent} className="px-6 py-3 rounded-full bg-brand text-white text-sm font-semibold shadow-lg hover:bg-brandLight transition-all">Create Event</button>
+                
+                {/* 2. EXPORT CSV BUTTON */}
+                <button onClick={() => onExport(eventStats)} className="px-6 py-3 rounded-full bg-amber-500 text-white text-sm font-semibold shadow-lg hover:bg-amber-600 transition-all">Export CSV</button>
+                
+                {/* 3. PREMIUM AI REPORT BUTTON */}
                 <button 
                     onClick={onGenerateAIReport} 
                     disabled={isGeneratingReport}
