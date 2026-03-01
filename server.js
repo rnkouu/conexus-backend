@@ -369,12 +369,12 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
             console.log("Starting OJS Integration Sync...");
 
             // Step 1: Push Metadata to create the official submission in OJS
-            const metadataPayload = {
-                locale: "en_US",
-                title: { en_US: title || "Untitled Research Paper" },
-                abstract: { en_US: abstract || "Abstract synced from Conexus Dashboard." },
-                sectionId: 1 // 1 is the default OJS section ID for 'Articles'
-            };
+    const metadataPayload = {
+        locale: "en", // Changed from en_US
+        title: { en: title || "Untitled Research Paper" }, // Changed from en_US
+        abstract: { en: abstract || "Abstract synced from Conexus Dashboard." }, // Changed from en_US
+        sectionId: 1 
+};
 
             const submissionRes = await axios.post(
                 `${OJS_CONFIG.apiUrl}/submissions`,
