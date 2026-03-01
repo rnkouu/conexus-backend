@@ -16,7 +16,7 @@
   const API_BASE = "https://conexus-backend-production.up.railway.app/api";
   const EMAIL_API = "https://conexus-backend-production.up.railway.app/api";
   
-  const OJS_DASHBOARD_URL = "http://conexus-ojs.ct.ws/index.php/crj/dashboard/editorial#submissions";
+  const OJS_DASHBOARD_URL = "https://darkgoldenrod-kudu-650795.hostingersite.com/index.php/crj/dashboard/editorial#submissions";
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('conexus_token');
