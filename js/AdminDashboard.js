@@ -890,15 +890,16 @@
                 <p className="text-base text-gray-500">Snapshot of events and registrations.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-                <button onClick={onCreateEvent} className="px-6 py-3 rounded-full bg-brand text-white text-sm font-semibold shadow-lg hover:bg-brandLight transition-all">Create Event</button>
-                <button onClick={() => onExport(eventStats)} className="px-6 py-3 rounded-full bg-amber-500 text-white text-sm font-semibold shadow-lg hover:bg-amber-600 transition-all">Export CSV</button>
-                {/* NEW AI REPORT BUTTON */}
+                {/* PREMIUM AI REPORT BUTTON */}
                 <button 
                     onClick={onGenerateAIReport} 
                     disabled={isGeneratingReport}
-                    className="px-6 py-3 rounded-full bg-indigo-500 text-white text-sm font-semibold shadow-lg hover:bg-indigo-600 transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="px-6 py-3 rounded-full bg-white border border-gray-200 text-brand text-sm font-extrabold shadow-sm hover:shadow-md hover:border-brand hover:bg-blue-50 transition-all flex items-center gap-2 disabled:opacity-50"
                 >
-                    <span>🤖</span> {isGeneratingReport ? "Analyzing..." : "AI Report"}
+                    <svg className="w-4 h-4 text-[var(--u-gold)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    {isGeneratingReport ? "Analyzing Data..." : "Generate AI Report"}
                 </button>
             </div>
         </div>
