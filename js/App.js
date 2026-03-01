@@ -447,8 +447,9 @@ function formatDateRange(startDate, endDate) {
   return start.toLocaleDateString(undefined, opts) + " – " + end.toLocaleDateString(undefined, opts);
 }
 
-function SingleEventPage({ event, onBack, onRegisterClick }) {
+function SingleEventPage({ event, registrations = [], onBack, onRegisterClick }) {
   if (!event) return null;
+  const isAlreadyRegistered = registrations.some(r => String(r.eventId) === String(event.id));
   return (
     <section className="relative px-4 py-12 max-w-5xl mx-auto">
       <Breadcrumbs items={[{ label: "Home", onClick: onBack }, { label: "Event Details" }]} />
@@ -475,7 +476,12 @@ function SingleEventPage({ event, onBack, onRegisterClick }) {
                 <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-accent3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>{event.mode || "On-site"}</span>
               </div>
             </div>
-            <button type="button" onClick={() => onRegisterClick(event)} className="px-8 py-3 rounded-xl grad-btn text-white font-extrabold shadow-lg u-sweep relative overflow-hidden">Register Now</button>
+            {/* NEW: Duplicate Check for Single Event Page */}
+            {isAlreadyRegistered ? (
+              <button disabled className="px-8 py-3 rounded-xl bg-gray-200 text-gray-500 font-extrabold shadow-sm cursor-not-allowed">Already Registered</button>
+            ) : (
+              <button type="button" onClick={() => onRegisterClick(event)} className="px-8 py-3 rounded-xl grad-btn text-white font-extrabold shadow-lg u-sweep relative overflow-hidden">Register Now</button>
+            )}
           </div>
           <hr className="border-gray-100 mb-6" />
           <div className="grid md:grid-cols-3 gap-8">
@@ -505,7 +511,7 @@ function SingleEventPage({ event, onBack, onRegisterClick }) {
   );
 }
 
-function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
+function PublicEventsPage({ events, registrations = [], loading, onBack, onRegisterClick }) {
   // 1. State for the filter
   const [filterMode, setFilterMode] = useState("All");
 
@@ -615,13 +621,12 @@ function PublicEventsPage({ events, loading, onBack, onRegisterClick }) {
                     ))}
                  </div>
                  
-                 <button
-                  type="button"
-                  onClick={() => onRegisterClick(event)}
-                  className="px-5 py-2.5 rounded-xl u-btn-gold text-xs font-extrabold transition u-sweep relative overflow-hidden shadow-sm hover:shadow-md"
-                >
-                  Register
-                </button>
+                 {/* NEW: Duplicate Check for Public Page Grid */}
+                 {registrations.some(r => String(r.eventId) === String(event.id)) ? (
+                   <button disabled className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-400 text-xs font-extrabold shadow-sm cursor-not-allowed">Registered</button>
+                 ) : (
+                   <button type="button" onClick={() => onRegisterClick(event)} className="px-5 py-2.5 rounded-xl u-btn-gold text-xs font-extrabold transition u-sweep relative overflow-hidden shadow-sm hover:shadow-md">Register</button>
+                 )}
               </div>
             </article>
           ))}
@@ -751,10 +756,25 @@ function Nav({ view, user, onNavigate, onLogout }) {
         <button type="button" onClick={() => onNavigate("landing")} className="u-nav-brand flex items-center gap-3 font-display text-lg md:text-xl font-extrabold hover:opacity-90 transition">
           <span className="u-nav-brand-mark" /><span>Conexus</span>
         </button>
-        <nav className="flex items-center gap-4 text-[14px]">
+       <nav className="flex items-center gap-4 text-[14px]">
           <button type="button" onClick={() => onNavigate("landing")} className="u-nav-link transition font-semibold">Home</button>
-          <button type="button" onClick={() => { if (!user) onNavigate("public-events"); else if (user.role === "presenter") onNavigate("presenter"); else if (user.role === "admin") onNavigate("admin"); else onNavigate("participant"); }} className="u-nav-link transition font-semibold">Events</button>
+          
+          {/* Events ALWAYS goes to the public catalog now */}
+          <button type="button" onClick={() => onNavigate("public-events")} className="u-nav-link transition font-semibold">Events</button>
+          
+          {/* NEW: Dedicated Dashboard Button for logged-in users */}
+          {user && (
+            <button type="button" onClick={() => { 
+              if (user.role === "admin") onNavigate("admin"); 
+              else if (user.role === "presenter") onNavigate("presenter"); 
+              else onNavigate("participant"); 
+            }} className="u-nav-link transition font-extrabold text-[var(--u-gold)]">
+              Dashboard
+            </button>
+          )}
+
           <button type="button" onClick={() => onNavigate("landing-faq")} className="u-nav-link transition font-semibold">FAQ</button>
+          
           {!user ? (
             <button type="button" onClick={() => onNavigate("auth")} className="px-4 py-2 rounded-lg u-btn-gold font-extrabold text-sm transition u-sweep relative overflow-hidden">Login / Register</button>
           ) : (
@@ -1156,7 +1176,7 @@ const [events, setEvents] = useState([]);
 
   let inner = null;
   if (view === "nfc-profile") inner = <NfcProfileWrapper slug={nfcSlug} />;
-  else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
+ else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} registrations={registrations} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
   else if (view === "landing") inner = <>
     <LandingContent
       events={events}
@@ -1174,7 +1194,7 @@ const [events, setEvents] = useState([]);
       <FaqAccordion/>
     </section>
   </>;
-  else if (view === "public-events") inner = <PublicEventsPage events={events} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={() => setView("auth")}/>;
+ else if (view === "public-events") inner = <PublicEventsPage events={events} registrations={registrations} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={() => setView("auth")}/>;
   else if (view === "auth") inner = <AuthPage onBack={() => setView("landing")} onLogin={handleLogin} onRegister={handleRegister}/>;
   // 3. UPDATED: Passing handleRegisterForEvent as the onRegister prop. 
   // Since we modified handleRegisterForEvent to handle empty args as a refresh, this fixes the white screen.
