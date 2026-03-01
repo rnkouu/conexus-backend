@@ -1,5 +1,0 @@
-{
-  "terminal.integrated.shellIntegration.enabled": true,
-  "terminal.integrated.enableMultiLinePasteWarning": false,
-  "terminal.integrated.defaultProfile.windows": "PowerShell"
-}

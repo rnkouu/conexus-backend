@@ -41,8 +41,8 @@ if (!fs.existsSync(uploadDir)) {
 
 // --- OJS Configuration ---
 const OJS_CONFIG = {
-    apiUrl: 'http://conexus-ojs.ct.ws/index.php/crj/api/v1',
-    apiKey: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.WyIzMzhmNjFjMjJhYjE3NGJlMTFiZTllOTQ2MjhkOTdmMjVkNDY5ODhlIl0.VNgBUzr9WBA-aDMWEurvTnsl3vcVodAEucnNbi80lBw'
+    apiUrl: 'https://darkgoldenrod-kudu-650795.hostingersite.com/index.php/crj/api/v1',
+    apiKey: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.WyJhM2Q0ZTIzYzAzNTJkMGE1NWYzNTM4YWM1NzVlMmU1Yzk3ZWZlY2E2Il0.G8bttl3F8jfti1uJGzTdMW-LYboKXK_x-RewWFgeOHo'
 };
 
 // --- CORS Configuration ---
