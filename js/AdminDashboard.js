@@ -843,7 +843,7 @@
                     disabled={selectedIds.size === 0} 
                     className="px-5 py-2 bg-brand text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition shadow-md disabled:opacity-50 disabled:shadow-none"
                 >
-                    Email Selected
+                    Send Certificates
                 </button>
             ) : (
                 <div className="w-48 space-y-2">
