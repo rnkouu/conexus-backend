@@ -874,9 +874,64 @@ function NfcProfileWrapper({ slug }) {
 /* =========================
    MAIN APP
    ========================= */
+function VerifyCertificatePage({ verifyId, onHome }) {
+  const [status, setStatus] = useState("checking");
+  const [certData, setCertData] = useState(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/verify/${verifyId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.valid) {
+          setCertData(data.data);
+          setStatus("valid");
+        } else {
+          setStatus("invalid");
+        }
+      })
+      .catch(() => setStatus("error"));
+  }, [verifyId]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center animate-fade-in-up">
+        {status === "checking" && <div className="spinner mx-auto mb-4" />}
+        
+        {status === "valid" && certData && (
+          <>
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">✓</div>
+            <h2 className="text-2xl font-black text-gray-900 mb-2">Verified Authentic</h2>
+            <p className="text-sm text-gray-500 mb-6">This certificate is an official document issued by the Conexus Platform.</p>
+            
+            <div className="bg-gray-50 rounded-2xl p-4 text-left space-y-3 border border-gray-100">
+              <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Issued To</p><p className="font-bold text-brand">{certData.full_name}</p></div>
+              <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Event</p><p className="font-bold text-gray-700 text-sm">{certData.event_title}</p></div>
+              <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date Issued</p><p className="font-bold text-gray-700 text-sm">{new Date(certData.certificate_issued_at).toLocaleDateString()}</p></div>
+              <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Certificate ID</p><p className="font-mono text-xs font-bold text-gray-500">CX-{certData.id}</p></div>
+            </div>
+          </>
+        )}
+
+        {(status === "invalid" || status === "error") && (
+          <>
+            <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">✕</div>
+            <h2 className="text-2xl font-black text-gray-900 mb-2">Verification Failed</h2>
+            <p className="text-sm text-gray-500 mb-6">We could not find a valid certificate matching this ID in our system.</p>
+          </>
+        )}
+
+        <button onClick={onHome} className="mt-8 w-full py-3 rounded-xl grad-btn text-white font-bold shadow-lg transition-all hover:opacity-90">
+          Return to Homepage
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const queryParams = new URLSearchParams(window.location.search);
   const nfcSlugParam = queryParams.get('nfc');
+const verifyParam = queryParams.get('verify');
   const isNfcRoute = !!nfcSlugParam;
   
   // 1. Check for saved user on load
@@ -889,6 +944,7 @@ function App() {
 
   // 2. Set the correct view based on the saved user
   const [view, setView] = useState(() => {
+    if (verifyParam) return "verify-cert";
     if (isNfcRoute) return "nfc-profile";
     try {
       const savedUser = localStorage.getItem('conexus_user');
@@ -1174,9 +1230,11 @@ const [events, setEvents] = useState([]);
     }
   }, [user]);
 
-  let inner = null;
-  if (view === "nfc-profile") inner = <NfcProfileWrapper slug={nfcSlug} />;
- else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} registrations={registrations} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
+ let inner = null;
+  
+  if (view === "verify-cert") inner = <VerifyCertificatePage verifyId={verifyParam} onHome={() => { window.history.pushState(null, "", "/"); setView("landing"); }} />; // <-- MOVED IT HERE
+  else if (view === "nfc-profile") inner = <NfcProfileWrapper slug={nfcSlug} />;
+  else if (view === "single-event") inner = <SingleEventPage event={selectedSingleEvent} registrations={registrations} onBack={() => setView("landing")} onRegisterClick={(evt) => handleRegisterForEvent(evt)}/>;
   else if (view === "landing") inner = <>
     <LandingContent
       events={events}
@@ -1194,10 +1252,8 @@ const [events, setEvents] = useState([]);
       <FaqAccordion/>
     </section>
   </>;
- else if (view === "public-events") inner = <PublicEventsPage events={events} registrations={registrations} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={() => setView("auth")}/>;
+  else if (view === "public-events") inner = <PublicEventsPage events={events} registrations={registrations} loading={loadingEvents} onBack={() => setView("landing")} onRegisterClick={() => setView("auth")}/>;
   else if (view === "auth") inner = <AuthPage onBack={() => setView("landing")} onLogin={handleLogin} onRegister={handleRegister}/>;
-  // 3. UPDATED: Passing handleRegisterForEvent as the onRegister prop. 
-  // Since we modified handleRegisterForEvent to handle empty args as a refresh, this fixes the white screen.
   else if (view === "participant") inner = <ParticipantDashboard user={user} events={events} loading={loadingEvents} registrations={registrations} submissions={submissions} onSubmitPaper={handleCreateSubmission} onRegister={handleRegisterForEvent} onDownloadInvitation={(e) => downloadInvitationPdf(e, user)} onUpdateUser={setUser}/>;
   else if (view === "presenter") inner = <PresenterDashboard user={user} events={events} loading={loadingEvents} registrations={registrations} submissions={submissions} onRegisterForEvent={handleRegisterForEvent} onSubmitPaper={handleCreateSubmission} onDownloadInvitation={(e) => downloadInvitationPdf(e, user)} onLogout={handleLogout}/>;
   else if (view === "admin") inner = <AdminDashboard user={user} events={events} registrations={registrations} loadingEvents={loadingEvents} onUpdateRegistrationStatus={handleUpdateRegistrationStatus} onNavigate={setView}/>;

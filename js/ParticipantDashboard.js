@@ -543,7 +543,7 @@
         const issueDate = reg.certificate_issued_at ? new Date(reg.certificate_issued_at).toLocaleDateString() : new Date().toLocaleDateString();
         
         // NEW: Generate verification QR code dynamically
-        const verifyUrl = `https://cconexus.vercel.app/verify?id=${reg.id}`;
+        const verifyUrl = `https://cconexus.vercel.app/?verify=${reg.id}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
         
         printWindow.document.write(`

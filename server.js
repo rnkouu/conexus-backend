@@ -184,6 +184,23 @@ app.get('/api/events', (req, res) => {
     });
 });
 
+// --- PUBLIC: VERIFY CERTIFICATE ---
+app.get('/api/verify/:id', (req, res) => {
+    const sql = `
+        SELECT r.id, r.status, r.certificate_issued_at, u.full_name, e.title as event_title 
+        FROM registrations r 
+        JOIN users u ON r.user_id = u.id 
+        JOIN events e ON r.event_id = e.id 
+        WHERE r.id = ? AND r.certificate_issued_at IS NOT NULL
+    `;
+    db.query(sql, [req.params.id], (err, results) => {
+        if (err || results.length === 0) {
+            return res.json({ valid: false });
+        }
+        res.json({ valid: true, data: results[0] });
+    });
+});
+
 app.get('/api/users/nfc/:profile_slug', (req, res) => {
     const query = "SELECT full_name, job_title, designation, university_org, bio, linkedin_url, facebook_url, twitter_url, phone, email FROM users WHERE profile_slug = ?";
     db.query(query, [req.params.profile_slug], (err, results) => {

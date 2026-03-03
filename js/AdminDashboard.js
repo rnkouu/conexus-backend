@@ -2281,7 +2281,7 @@ Notes / Flags
       const ev = events.find(e => String(e.id) === String(certTarget.eventId)) || { title: "Event" };
       
       // NEW: Generate the Verification Link and QR Image URL
-      const verifyUrl = `https://cconexus.vercel.app/verify?id=${certTarget.id}`;
+      const verifyUrl = `https://cconexus.vercel.app/?verify=${certTarget.id}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
 
       return SafeCertGenerator.generateHTML({ 
