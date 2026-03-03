@@ -212,12 +212,35 @@
             {selectedElement && (
               <div className="space-y-4 animate-fade-in-up">
                 <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Text</label><input value={selectedElement.text} onChange={e => updateElement('text', e.target.value)} className="w-full text-xs font-bold p-2 rounded-lg border border-gray-200 focus:border-brand outline-none" /></div>
+                
+                {/* NEW: FONT AND STYLE SELECTORS */}
                 <div className="grid grid-cols-2 gap-3">
-                   <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Size</label><input type="number" value={selectedElement.fontSize} onChange={e => updateElement('fontSize', parseInt(e.target.value))} className="w-full text-xs p-2 rounded-lg border border-gray-200" /></div>
+                   <div>
+                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Font</label>
+                     <select value={selectedElement.fontFamily} onChange={e => updateElement('fontFamily', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-gray-200 outline-none focus:border-brand cursor-pointer">
+                       <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+                       <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                       <option value="Georgia, serif">Georgia</option>
+                       <option value="'Courier New', Courier, monospace">Courier</option>
+                       <option value="'Brush Script MT', cursive">Brush Script</option>
+                       <option value="Impact, fantasy">Impact</option>
+                     </select>
+                   </div>
+                   <div>
+                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Style</label>
+                     <select value={selectedElement.fontWeight} onChange={e => updateElement('fontWeight', e.target.value)} className="w-full text-xs p-2 rounded-lg border border-gray-200 outline-none focus:border-brand cursor-pointer">
+                       <option value="normal">Normal</option>
+                       <option value="bold">Bold</option>
+                     </select>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                   <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Size</label><input type="number" value={selectedElement.fontSize} onChange={e => updateElement('fontSize', parseInt(e.target.value))} className="w-full text-xs p-2 rounded-lg border border-gray-200 focus:border-brand outline-none" /></div>
                    <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Color</label><input type="color" value={selectedElement.color} onChange={e => updateElement('color', e.target.value)} className="w-full h-8 p-0 border-0 rounded cursor-pointer" /></div>
                 </div>
-                <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Pos Y%</label><input type="range" min="0" max="100" value={selectedElement.y} onChange={e => updateElement('y', parseInt(e.target.value))} className="w-full accent-brand h-2 bg-gray-200 rounded-lg" /></div>
-                <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Pos X%</label><input type="range" min="0" max="100" value={selectedElement.x} onChange={e => updateElement('x', parseInt(e.target.value))} className="w-full accent-brand h-2 bg-gray-200 rounded-lg" /></div>
+                <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Pos Y%</label><input type="range" min="0" max="100" value={selectedElement.y} onChange={e => updateElement('y', parseInt(e.target.value))} className="w-full accent-brand h-2 bg-gray-200 rounded-lg cursor-pointer" /></div>
+                <div><label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Pos X%</label><input type="range" min="0" max="100" value={selectedElement.x} onChange={e => updateElement('x', parseInt(e.target.value))} className="w-full accent-brand h-2 bg-gray-200 rounded-lg cursor-pointer" /></div>
               </div>
             )}
           </div>
