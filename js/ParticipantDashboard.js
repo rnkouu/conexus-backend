@@ -542,6 +542,10 @@
         const printWindow = window.open('', '_blank');
         const issueDate = reg.certificate_issued_at ? new Date(reg.certificate_issued_at).toLocaleDateString() : new Date().toLocaleDateString();
         
+        // NEW: Generate verification QR code dynamically
+        const verifyUrl = `https://cconexus.vercel.app/verify?id=${reg.id}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+        
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
@@ -559,8 +563,8 @@
                         .event { font-size: 24px; color: #111; font-weight: bold; margin-bottom: 15px; }
                         .date { font-size: 14px; color: #777; }
                         .footer { position: absolute; bottom: 50px; left: 50px; right: 50px; display: flex; justify-content: space-between; align-items: flex-end; }
-                        .signature { border-top: 1px solid #111; width: 200px; padding-top: 5px; font-size: 14px; font-weight: bold; }
-                        .meta { text-align: right; font-size: 10px; color: #999; }
+                        .signature { border-top: 1px solid #111; width: 200px; padding-top: 5px; font-size: 14px; font-weight: bold; text-align: left; }
+                        .meta { text-align: right; font-size: 10px; color: #999; display: flex; flex-direction: column; align-items: flex-end; }
                         @media print { 
                             @page { size: landscape; margin: 0; }
                             body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
@@ -580,12 +584,17 @@
                             
                             <div class="footer">
                                 <div class="signature">Demo Admin<br><span style="font-weight:normal;font-size:10px;color:#555;">Conexus Events Team</span></div>
-                                <div class="meta">ID: CX-${reg.id}-${Date.now().toString().slice(-6)}<br>Issued: ${issueDate}</div>
+                                <div class="meta">
+                                    <img src="${qrUrl}" alt="QR Code" style="width: 70px; height: 70px; margin-bottom: 6px; border: 1px solid #eee; padding: 2px;" />
+                                    <span>ID: CX-${reg.id}</span>
+                                    <span>Issued: ${issueDate}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <script>
-                        setTimeout(() => window.print(), 500);
+                        // Wait slightly longer to ensure QR image loads before printing
+                        setTimeout(() => window.print(), 800);
                     </script>
                 </body>
             </html>

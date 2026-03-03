@@ -74,13 +74,14 @@
             <h3 style="font-size: 28px; margin: 15px 0; font-weight: bold;">${data.eventTitle}</h3>
             <p style="font-size: 16px; color: #555;">${data.dateLabel}</p>
         </div>
-        <div style="margin-top: 50px; display: flex; justify-content: space-between; padding: 0 60px;">
+        <div style="margin-top: 50px; display: flex; justify-content: space-between; padding: 0 60px; align-items: flex-end;">
             <div style="text-align: center;">
                 <div style="border-top: 1px solid #333; width: 200px; margin: 0 auto 5px auto;"></div>
                 <p style="font-weight: bold; margin: 0;">${data.issuerName}</p>
                 <p style="font-size: 12px; margin: 0;">${data.issuerRole}</p>
             </div>
-            <div style="text-align: right;">
+            <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
+                <img src="${data.qrUrl}" crossorigin="anonymous" alt="QR Verification" style="width: 70px; height: 70px; margin-bottom: 8px; border: 2px solid #f3f4f6; padding: 2px; border-radius: 6px;" />
                 <p style="font-size: 10px; color: #aaa; margin: 0;">ID: ${data.certificateId}</p>
                 <p style="font-size: 10px; color: #aaa; margin: 0;">Issued: ${data.issuedAt}</p>
             </div>
@@ -2278,7 +2279,21 @@ Notes / Flags
     const getCertHtml = () => {
       if (!certTarget) return "";
       const ev = events.find(e => String(e.id) === String(certTarget.eventId)) || { title: "Event" };
-      return SafeCertGenerator.generateHTML({ name: certTarget.fullName, eventTitle: ev.title, dateLabel: formatDateRange(ev.startDate, ev.endDate), issuerName: user.name || "Admin", issuerRole: user.university || "Research Office", certificateId: "CX-" + Date.now(), issuedAt: new Date().toLocaleDateString() });
+      
+      // NEW: Generate the Verification Link and QR Image URL
+      const verifyUrl = `https://cconexus.vercel.app/verify?id=${certTarget.id}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
+
+      return SafeCertGenerator.generateHTML({ 
+          name: certTarget.fullName, 
+          eventTitle: ev.title, 
+          dateLabel: formatDateRange(ev.startDate, ev.endDate), 
+          issuerName: user.name || "Admin", 
+          issuerRole: user.university || "Event Organizer", 
+          certificateId: "CX-" + certTarget.id, 
+          issuedAt: new Date().toLocaleDateString(),
+          qrUrl: qrUrl // Pass the QR to the template
+      });
     };
 
     const handleBatchEmail = async (targets) => {
