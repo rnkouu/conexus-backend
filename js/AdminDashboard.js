@@ -122,7 +122,10 @@
         validId: row.valid_id_path || null,
         adminNote: row.admin_note || null,
         certificateIssuedAt: row.certificate_issued_at || null,
-        profile_slug: row.profile_slug || null
+        profile_slug: row.profile_slug || null,
+        regRole: row.reg_role || "participant",
+        presentationPath: row.presentation_path || null,
+        videoPath: row.video_path || null
     };
   };
 
@@ -483,19 +486,47 @@
     if (!reg) return null;
     const companionList = Array.isArray(reg.companions) ? reg.companions : (typeof reg.companions === 'string' ? JSON.parse(reg.companions) : []);
     const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId}` : null;
+    
+    // NEW: URLs for presenter files
+    const presentationUrl = reg.presentationPath ? `https://conexus-backend-production.up.railway.app/${reg.presentationPath}` : null;
+    const videoUrl = reg.videoPath ? `https://conexus-backend-production.up.railway.app/${reg.videoPath}` : null;
 
     return (
       <ModalWrapper onClose={onClose}>
         <div className="p-8">
-          <div className="flex justify-between items-start mb-6"><div><h3 className="text-2xl font-black text-brand">Registration Detail</h3><p className="text-sm text-gray-500">{reg.eventTitle}</p></div><button onClick={onClose} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">✕</button></div>
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-2xl font-black text-brand">Registration Detail</h3>
+                {/* NEW: Role Badge */}
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${reg.regRole === 'presenter' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
+                  {reg.regRole}
+                </span>
+              </div>
+              <p className="text-sm text-gray-500">{reg.eventTitle}</p>
+            </div>
+            <button onClick={onClose} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">✕</button>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="space-y-6">
                 <div className="space-y-2">
-                    <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Primary Participant</h4>
+                    <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Primary {reg.regRole === 'presenter' ? 'Presenter' : 'Participant'}</h4>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Name</p><p className="text-sm font-bold text-gray-800">{reg.fullName}</p></div>
                     <div><p className="text-[10px] font-bold text-gray-400 uppercase">Email</p><p className="text-sm font-medium text-gray-600">{reg.userEmail}</p></div>
                 </div>
                 
+                {/* NEW: Presenter Files */}
+                {reg.regRole === 'presenter' && (
+                  <div className="space-y-2 pt-4 bg-amber-50/30 p-4 rounded-xl border border-amber-100">
+                      <h4 className="text-[11px] font-black text-amber-800 uppercase tracking-widest mb-3">Presenter Materials</h4>
+                      <div className="flex flex-col gap-3">
+                        {presentationUrl ? <a href={presentationUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand bg-white px-3 py-2 rounded-lg border border-amber-200 hover:bg-amber-50 flex items-center gap-2 shadow-sm">📄 Download Deck</a> : <p className="text-xs text-gray-400 italic">No deck uploaded</p>}
+                        {videoUrl ? <a href={videoUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand bg-white px-3 py-2 rounded-lg border border-amber-200 hover:bg-amber-50 flex items-center gap-2 shadow-sm">🎥 View Video</a> : <p className="text-xs text-gray-400 italic">No video uploaded</p>}
+                      </div>
+                  </div>
+                )}
+
                 <div className="space-y-2 pt-4">
                     <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Valid ID</h4>
                     {fileUrl ? (

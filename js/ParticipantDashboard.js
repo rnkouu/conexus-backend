@@ -329,9 +329,12 @@
     const [liveRegs, setLiveRegs] = useState([]);
 
     // --- Registration States ---
+    const [regRole, setRegRole] = useState('participant'); // NEW
     const [participantsCount, setParticipantsCount] = useState(1);
     const [companions, setCompanions] = useState([]); 
     const [selectedFile, setSelectedFile] = useState(null); 
+    const [presentationFile, setPresentationFile] = useState(null); // NEW
+    const [videoFile, setVideoFile] = useState(null); // NEW
     
     // --- View/Preview State ---
     const [previewReg, setPreviewReg] = useState(null);
@@ -464,6 +467,10 @@
           window.Swal.fire({ title: 'ID Required', text: 'Please upload a valid ID to proceed.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
           return;
       }
+      if (regRole === 'presenter' && (!presentationFile || !videoFile)) {
+          window.Swal.fire({ title: 'Missing Files', text: 'Presenters must upload both a presentation file and a sample video.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
+          return;
+      }
 
       setSaving(true);
       try {
@@ -472,6 +479,11 @@
           payload.append('event_id', selectedEvent.id);
           payload.append('valid_id', selectedFile); 
           payload.append('companions', JSON.stringify(companions)); 
+          
+          // NEW: Append presenter fields
+          payload.append('reg_role', regRole);
+          if (presentationFile) payload.append('presentation_file', presentationFile);
+          if (videoFile) payload.append('video_file', videoFile);
 
           const token = localStorage.getItem('conexus_token'); 
 
@@ -906,24 +918,41 @@
                     <p className="text-xs text-white/75 mt-1">Enrolling in: <strong className="text-[var(--u-gold)]">{selectedEvent.title}</strong></p>
                  </div>
                  <form onSubmit={(e) => { e.preventDefault(); setPendingPayload({event: selectedEvent, formData}); setConfirmOpen(true); }} className="p-8 space-y-4">
+                    
+                    {/* NEW: ROLE SELECTOR */}
+                    <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
+                      <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
+                      <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Full Name</label><input className="u-input-academic" value={formData.fullName} onChange={e => setFormData(p=>({...p, fullName: e.target.value}))} required /></div>
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email</label><input className="u-input-academic" type="email" value={formData.email} onChange={e => setFormData(p=>({...p, email: e.target.value}))} required /></div>
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email</label><input className="u-input-academic bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200 shadow-inner" type="email" value={formData.email} readOnly title="Email is tied to your account and cannot be changed." /></div>
                       <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">University/Affiliation</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} /></div>
                       <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Contact Number</label><input className="u-input-academic" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} /></div>
                       
                       {/* VALID ID UPLOAD */}
                       <div className="col-span-2">
                           <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID (Required)</label>
-                          <input 
-                              type="file" 
-                              accept="image/*,application/pdf"
-                              className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                              onChange={(e) => setSelectedFile(e.target.files[0])}
-                              required 
-                          />
-                          <p className="text-[9px] text-gray-400 mt-1">Government or School ID required for approval.</p>
+                          <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" onChange={(e) => setSelectedFile(e.target.files[0])} required />
                       </div>
+
+                      {/* NEW: PRESENTER CONDITIONAL UPLOADS */}
+                      {regRole === 'presenter' && (
+                        <>
+                          <div className="col-span-2 border-t border-gray-100 pt-4 mt-2">
+                            <p className="text-xs font-black text-brand uppercase mb-3">Presenter Requirements</p>
+                          </div>
+                          <div className="col-span-2 sm:col-span-1">
+                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck</label>
+                              <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer text-xs" onChange={(e) => setPresentationFile(e.target.files[0])} required={regRole === 'presenter'} />
+                          </div>
+                          <div className="col-span-2 sm:col-span-1">
+                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4)</label>
+                              <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer text-xs" onChange={(e) => setVideoFile(e.target.files[0])} required={regRole === 'presenter'} />
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between pt-6 border-t border-gray-100">
@@ -951,37 +980,16 @@
                               <p className="text-[10px] font-bold text-blue-500 uppercase mb-2">Guest {index + 1}</p>
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="col-span-2 sm:col-span-1">
-                                  <input 
-                                    className="u-input-academic text-xs" 
-                                    placeholder="Full Name" 
-                                    value={comp.name} 
-                                    onChange={e => handleCompanionChange(index, "name", e.target.value)} 
-                                    required 
-                                  />
+                                  <input className="u-input-academic text-xs" placeholder="Full Name" value={comp.name} onChange={e => handleCompanionChange(index, "name", e.target.value)} required />
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">
-                                  <input 
-                                    className="u-input-academic text-xs" 
-                                    placeholder="Relation" 
-                                    value={comp.relation} 
-                                    onChange={e => handleCompanionChange(index, "relation", e.target.value)} 
-                                  />
+                                  <input className="u-input-academic text-xs" placeholder="Relation" value={comp.relation} onChange={e => handleCompanionChange(index, "relation", e.target.value)} />
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">
-                                  <input 
-                                    className="u-input-academic text-xs" 
-                                    placeholder="Email (Optional)" 
-                                    value={comp.email} 
-                                    onChange={e => handleCompanionChange(index, "email", e.target.value)} 
-                                  />
+                                  <input className="u-input-academic text-xs" placeholder="Email (Optional)" value={comp.email} onChange={e => handleCompanionChange(index, "email", e.target.value)} />
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">
-                                  <input 
-                                    className="u-input-academic text-xs" 
-                                    placeholder="Phone (Optional)" 
-                                    value={comp.phone} 
-                                    onChange={e => handleCompanionChange(index, "phone", e.target.value)} 
-                                  />
+                                  <input className="u-input-academic text-xs" placeholder="Phone (Optional)" value={comp.phone} onChange={e => handleCompanionChange(index, "phone", e.target.value)} />
                                 </div>
                               </div>
                             </div>

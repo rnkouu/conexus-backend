@@ -305,41 +305,39 @@ app.get('/api/registrations', verifyToken, (req, res) => {
     });
 });
 
-app.post('/api/register', verifyToken, upload.single('valid_id'), (req, res) => {
-    let { user_email, event_id, companions } = req.body;
-    const valid_id_path = req.file ? req.file.path : null;
+app.post('/api/register', verifyToken, upload.fields([
+    { name: 'valid_id', maxCount: 1 },
+    { name: 'presentation_file', maxCount: 1 },
+    { name: 'video_file', maxCount: 1 }
+]), (req, res) => {
+    let { user_email, event_id, companions, reg_role } = req.body;
+    
+    // Safely extract file paths if they were uploaded
+    const valid_id_path = req.files && req.files['valid_id'] ? req.files['valid_id'][0].path : null;
+    const presentation_path = req.files && req.files['presentation_file'] ? req.files['presentation_file'][0].path : null;
+    const video_path = req.files && req.files['video_file'] ? req.files['video_file'][0].path : null;
+    const role = reg_role || 'participant';
 
     if (typeof companions === 'string') {
         try { companions = JSON.parse(companions); } 
         catch (e) { companions = []; }
     }
 
-    // FIX: Grab a specific connection from the pool for the transaction
     db.getConnection((err, connection) => {
         if (err) return res.status(500).json({ error: "Database connection error" });
 
         connection.beginTransaction((err) => {
-            if (err) {
-                connection.release();
-                return res.status(500).json({ error: err.message });
-            }
+            if (err) { connection.release(); return res.status(500).json({ error: err.message }); }
             
             connection.query("SELECT id FROM users WHERE email = ?", [user_email], (err, users) => {
                 if (err || users.length === 0) {
-                    return connection.rollback(() => {
-                        connection.release();
-                        res.status(404).json({ message: 'User not found' });
-                    });
+                    return connection.rollback(() => { connection.release(); res.status(404).json({ message: 'User not found' }); });
                 }
                 
-                const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, created_at) VALUES (?, ?, 'For approval', ?, NOW())";
-                connection.query(sqlReg, [users[0].id, event_id, valid_id_path], (err, result) => {
-                    if (err) {
-                        return connection.rollback(() => {
-                            connection.release();
-                            res.status(500).json({ error: err.message });
-                        });
-                    }
+                // NEW: Insert role and the two new file paths
+                const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, reg_role, presentation_path, video_path, created_at) VALUES (?, ?, 'For approval', ?, ?, ?, ?, NOW())";
+                connection.query(sqlReg, [users[0].id, event_id, valid_id_path, role, presentation_path, video_path], (err, result) => {
+                    if (err) { return connection.rollback(() => { connection.release(); res.status(500).json({ error: err.message }); }); }
                     
                     const regId = result.insertId;
                     if (companions && Array.isArray(companions) && companions.length > 0) {
@@ -347,22 +345,11 @@ app.post('/api/register', verifyToken, upload.single('valid_id'), (req, res) => 
                         const values = companions.map(c => [regId, c.name, c.relation, c.phone, c.email]);
                         
                         connection.query(compSql, [values], (err) => {
-                            if (err) {
-                                return connection.rollback(() => {
-                                    connection.release();
-                                    res.status(500).json({ error: "Companion insert failed" });
-                                });
-                            }
-                            connection.commit(() => {
-                                connection.release();
-                                res.json({ success: true, regId });
-                            });
+                            if (err) { return connection.rollback(() => { connection.release(); res.status(500).json({ error: "Companion insert failed" }); }); }
+                            connection.commit(() => { connection.release(); res.json({ success: true, regId }); });
                         });
                     } else {
-                        connection.commit(() => {
-                            connection.release();
-                            res.json({ success: true, regId });
-                        });
+                        connection.commit(() => { connection.release(); res.json({ success: true, regId }); });
                     }
                 });
             });
