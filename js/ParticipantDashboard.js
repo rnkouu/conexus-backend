@@ -321,7 +321,7 @@
     const [tab, setTab] = useState("upcoming");
     const [filterType, setFilterType] = useState("all");
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [formData, setFormData] = useState({ fullName: "", email: "", university: "", contact: "", notes: "" });
+    const [formData, setFormData] = useState({ firstName: "", lastName: "", middleName: "", gender: "", age: "", email: "", university: "", contact: "" });
     
     // --- Room & Dorm State (Fetched automatically now) ---
     const [localRooms, setLocalRooms] = useState([]);
@@ -435,11 +435,14 @@
       setParticipantsCount(1);
       setCompanions([]); 
       setFormData({
-        fullName: user?.name || "",
+        firstName: user?.name ? user.name.split(' ')[0] : "",
+        lastName: user?.name ? user.name.split(' ').slice(1).join(' ') : "",
+        middleName: "",
+        gender: "",
+        age: "",
         email: user?.email || "",
         university: user?.university || "",
-        contact: user?.phone || "",
-        notes: "",
+        contact: user?.phone || ""
       });
       setSelectedFile(null); 
     };
@@ -480,10 +483,16 @@
           payload.append('valid_id', selectedFile); 
           payload.append('companions', JSON.stringify(companions)); 
           
-          // NEW: Append presenter fields
           payload.append('reg_role', regRole);
           if (presentationFile) payload.append('presentation_file', presentationFile);
           if (videoFile) payload.append('video_file', videoFile);
+
+          payload.append('first_name', formData.firstName);
+          payload.append('last_name', formData.lastName);
+          payload.append('middle_name', formData.middleName);
+          payload.append('gender', formData.gender);
+          payload.append('age', formData.age);
+          payload.append('contact_number', formData.contact);
 
           const token = localStorage.getItem('conexus_token'); 
 
@@ -807,9 +816,20 @@
           {tab === "submit" && (
             <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-4">
-                <div className="u-card p-8 rounded-[2rem]">
-                  <h3 className="text-xl font-black text-brand mb-2">Academic Submission</h3>
-                  <p className="text-xs text-gray-500 mb-6">Submit your research paper for peer review. Only PDF format is accepted.</p>
+               <div className="u-card p-8 rounded-[2rem]">
+                  <h3 className="text-xl font-black text-brand mb-2">8IRF Full Paper Submission</h3>
+                  
+                  {/* AUP CUSTOM ALERT BANNER */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+                      <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1">⚠️ Important Note</p>
+                      <p className="text-xs text-amber-900 mb-2 leading-relaxed">
+                          Please make sure to follow the full paper template before submitting it. <a href="https://www.aup.edu.ph/urc/wp-content/uploads/2025/02/Full-Paper-Template-with-Sample-Paper.pdf" target="_blank" rel="noreferrer" className="underline font-bold text-brand hover:text-blue-600 transition-colors">Click here for the AUP Template</a>.
+                      </p>
+                      <p className="text-[11px] text-amber-900 bg-amber-100/50 p-2 rounded-lg border border-amber-100 mt-2">
+                          <strong>Filename format:</strong> Lastname_Firstname_PaperTitle.docx<br/>
+                          <span className="opacity-75">Example: Cruz_Juan_BusinessInModernEra.docx</span>
+                      </p>
+                  </div>
                   
                   <form onSubmit={handlePaperSubmit} className="space-y-4">
                      {/* --- EVENT SELECTION DROPDOWN --- */}
@@ -827,19 +847,40 @@
                         </select>
                      </div>
 
-                     <div><label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Paper Title</label><input className="u-input-academic" value={paperForm.title} onChange={e => setPaperForm(p=>({...p, title: e.target.value}))} placeholder="Full academic title" /></div>
-                     <div><label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Research Track</label><select className="u-input-academic" value={paperForm.track} onChange={e => setPaperForm(p=>({...p, track: e.target.value}))}><option>General Research</option><option>AI / Data Science</option><option>Education</option></select></div>
-                     <div><label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Abstract</label><textarea rows={4} className="u-input-academic" value={paperForm.abstract} onChange={e => setPaperForm(p=>({...p, abstract: e.target.value}))} placeholder="Brief summary of your work..." /></div>
-                     <div className="relative">
+                     <div>
+                         <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Paper Title *</label>
+                         <input className="u-input-academic" value={paperForm.title} onChange={e => setPaperForm(p=>({...p, title: e.target.value}))} placeholder="Full academic title" required />
+                     </div>
+                     
+                     {/* CHANGED "Research Track" to "Select Strand" */}
+                     <div>
+                         <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Select Strand *</label>
+                         <select className="u-input-academic" value={paperForm.track} onChange={e => setPaperForm(p=>({...p, track: e.target.value}))} required>
+                            <option value="">-- Select a Strand --</option>
+                            <option value="Health and Wellness">Health and Wellness</option>
+                            <option value="Business and Technology">Business and Technology</option>
+                            <option value="Education and Humanities">Education and Humanities</option>
+                            <option value="Religion and Theology">Religion and Theology</option>
+                            <option value="Science and Agriculture">Science and Agriculture</option>
+                         </select>
+                     </div>
+                     
+                     <div>
+                         <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Abstract</label>
+                         <textarea rows={4} className="u-input-academic" value={paperForm.abstract} onChange={e => setPaperForm(p=>({...p, abstract: e.target.value}))} placeholder="Brief summary of your work..." />
+                     </div>
+                     
+                     {/* CHANGED TO ACCEPT MS WORD (.docx) INSTEAD OF PDF */}
+                     <div className="relative mt-2">
                         <label className="u-input-academic border-dashed py-8 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
-                          <input type="file" accept=".pdf" className="hidden" onChange={e => {setPaperFile(e.target.files[0]); setPaperFileName(e.target.files[0]?.name);}} />
-                          <span className="text-blue-600 font-black text-sm text-center px-4">{paperFileName || "Select PDF"}</span>
-                          <span className="text-[10px] text-gray-400 uppercase mt-1">Click to browse</span>
+                          <input type="file" accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={e => {setPaperFile(e.target.files[0]); setPaperFileName(e.target.files[0]?.name);}} required />
+                          <span className="text-blue-600 font-black text-sm text-center px-4">{paperFileName || "Upload Full Manuscript (MS Word)"}</span>
+                          <span className="text-[10px] text-gray-400 uppercase mt-1">Max 10 MB. .docx format only.</span>
                         </label>
                      </div>
                      
                      <button type="submit" disabled={paperSaving} className="grad-btn w-full py-3 rounded-xl text-white font-extrabold u-sweep relative overflow-hidden mt-4">
-                       {paperSaving ? "Processing..." : "Submit Paper"}
+                       {paperSaving ? "Uploading Manuscript..." : "Submit Paper"}
                      </button>
 
                      {paperError && <p className="text-red-500 text-xs font-bold text-center mt-2">{paperError}</p>}
@@ -926,14 +967,30 @@
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Full Name</label><input className="u-input-academic" value={formData.fullName} onChange={e => setFormData(p=>({...p, fullName: e.target.value}))} required /></div>
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email</label><input className="u-input-academic bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200 shadow-inner" type="email" value={formData.email} readOnly title="Email is tied to your account and cannot be changed." /></div>
-                      <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">University/Affiliation</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} /></div>
-                      <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Contact Number</label><input className="u-input-academic" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} /></div>
+                      {/* AUP Requirements: Name Breakdown */}
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} required /></div>
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">First Name *</label><input className="u-input-academic" value={formData.firstName} onChange={e => setFormData(p=>({...p, firstName: e.target.value}))} required /></div>
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Middle Name</label><input className="u-input-academic" value={formData.middleName} onChange={e => setFormData(p=>({...p, middleName: e.target.value}))} /></div>
+                      
+                      {/* Read-Only Email */}
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email *</label><input className="u-input-academic bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200 shadow-inner" type="email" value={formData.email} readOnly title="Email is tied to your account." /></div>
+                      
+                      {/* AUP Demographics */}
+                      <div className="col-span-2 sm:col-span-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Gender *</label>
+                          <select className="u-input-academic" value={formData.gender} onChange={e => setFormData(p=>({...p, gender: e.target.value}))} required>
+                              <option value="">Select...</option>
+                              <option value="Female">Female</option>
+                              <option value="Male">Male</option>
+                          </select>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Age *</label><input type="number" className="u-input-academic" value={formData.age} onChange={e => setFormData(p=>({...p, age: e.target.value}))} required /></div>
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Mobile Number *</label><input className="u-input-academic" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} required /></div>
+                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Institution</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} placeholder="e.g. AUP" /></div>
                       
                       {/* VALID ID UPLOAD */}
                       <div className="col-span-2">
-                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID (Required)</label>
+                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID (Required) *</label>
                           <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" onChange={(e) => setSelectedFile(e.target.files[0])} required />
                       </div>
 
@@ -944,7 +1001,7 @@
                             <p className="text-xs font-black text-brand uppercase mb-3">Presenter Requirements</p>
                           </div>
                           <div className="col-span-2 sm:col-span-1">
-                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation</label>
+                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck</label>
                               <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer text-xs" onChange={(e) => setPresentationFile(e.target.files[0])} required={regRole === 'presenter'} />
                           </div>
                           <div className="col-span-2 sm:col-span-1">

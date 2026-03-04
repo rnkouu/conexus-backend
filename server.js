@@ -310,9 +310,9 @@ app.post('/api/register', verifyToken, upload.fields([
     { name: 'presentation_file', maxCount: 1 },
     { name: 'video_file', maxCount: 1 }
 ]), (req, res) => {
-    let { user_email, event_id, companions, reg_role } = req.body;
+    // NEW: Added first_name, last_name, middle_name, gender, age, contact_number
+    let { user_email, event_id, companions, reg_role, first_name, last_name, middle_name, gender, age, contact_number } = req.body;
     
-    // Safely extract file paths if they were uploaded
     const valid_id_path = req.files && req.files['valid_id'] ? req.files['valid_id'][0].path : null;
     const presentation_path = req.files && req.files['presentation_file'] ? req.files['presentation_file'][0].path : null;
     const video_path = req.files && req.files['video_file'] ? req.files['video_file'][0].path : null;
@@ -334,9 +334,10 @@ app.post('/api/register', verifyToken, upload.fields([
                     return connection.rollback(() => { connection.release(); res.status(404).json({ message: 'User not found' }); });
                 }
                 
-                // NEW: Insert role and the two new file paths
-                const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, reg_role, presentation_path, video_path, created_at) VALUES (?, ?, 'For approval', ?, ?, ?, ?, NOW())";
-                connection.query(sqlReg, [users[0].id, event_id, valid_id_path, role, presentation_path, video_path], (err, result) => {
+                // NEW: SQL Insert now includes the 6 demographic fields
+                const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, reg_role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number, created_at) VALUES (?, ?, 'For approval', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                
+                connection.query(sqlReg, [users[0].id, event_id, valid_id_path, role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number], (err, result) => {
                     if (err) { return connection.rollback(() => { connection.release(); res.status(500).json({ error: err.message }); }); }
                     
                     const regId = result.insertId;

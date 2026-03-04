@@ -125,7 +125,15 @@
         profile_slug: row.profile_slug || null,
         regRole: row.reg_role || "participant",
         presentationPath: row.presentation_path || null,
-        videoPath: row.video_path || null
+        videoPath: row.video_path || null,
+        
+        // NEW FIELDS: AUP Demographics mapped directly from database
+        firstName: row.first_name || "",
+        lastName: row.last_name || "",
+        middleName: row.middle_name || "",
+        gender: row.gender || "",
+        age: row.age || "",
+        contactNumber: row.contact_number || ""
     };
   };
 
@@ -512,8 +520,22 @@
             <div className="space-y-6">
                 <div className="space-y-2">
                     <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Primary {reg.regRole === 'presenter' ? 'Presenter' : 'Participant'}</h4>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase">Name</p><p className="text-sm font-bold text-gray-800">{reg.fullName}</p></div>
-                    <div><p className="text-[10px] font-bold text-gray-400 uppercase">Email</p><p className="text-sm font-medium text-gray-600">{reg.userEmail}</p></div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Full Name</p>
+                        <p className="text-sm font-bold text-gray-800">{reg.firstName} {reg.middleName} {reg.lastName}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Demographics</p>
+                        <p className="text-sm font-medium text-gray-600">{reg.gender || "N/A"} • {reg.age ? `${reg.age} yrs old` : "N/A"}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Contact & Institution</p>
+                        <p className="text-sm font-medium text-gray-600">{reg.contactNumber || "N/A"} • {reg.university || "N/A"}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Email</p>
+                        <p className="text-sm font-medium text-gray-600">{reg.userEmail}</p>
+                    </div>
                 </div>
                 
                 {/* NEW: Presenter Files */}
