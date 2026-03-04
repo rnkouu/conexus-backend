@@ -126,6 +126,8 @@
         regRole: row.reg_role || "participant",
         presentationPath: row.presentation_path || null,
         videoPath: row.video_path || null,
+        proofOfPaymentPath: row.proof_of_payment_path || null,
+        firstName: row.first_name || "",
         
         // NEW FIELDS: AUP Demographics mapped directly from database
         firstName: row.first_name || "",
@@ -494,7 +496,7 @@
     if (!reg) return null;
     const companionList = Array.isArray(reg.companions) ? reg.companions : (typeof reg.companions === 'string' ? JSON.parse(reg.companions) : []);
     const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId}` : null;
-    
+    const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath}` : null;
     // NEW: URLs for presenter files
     const presentationUrl = reg.presentationPath ? `https://conexus-backend-production.up.railway.app/${reg.presentationPath}` : null;
     const videoUrl = reg.videoPath ? `https://conexus-backend-production.up.railway.app/${reg.videoPath}` : null;
@@ -550,13 +552,28 @@
                 )}
 
                 <div className="space-y-2 pt-4">
-                    <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Valid ID</h4>
-                    {fileUrl ? (
-                        <div className="group relative w-full h-40 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
-                            <img src={fileUrl} alt="ID" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
-                            <a href={fileUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View Full</a>
+                    <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Attachments</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Valid ID</p>
+                            {fileUrl ? (
+                                <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                                    <img src={fileUrl} alt="ID" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
+                                    <a href={fileUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
+                                </div>
+                            ) : <p className="text-xs text-gray-400 italic">No ID uploaded.</p>}
                         </div>
-                    ) : <p className="text-xs text-gray-400 italic">No ID uploaded.</p>}
+                        
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Proof of Payment</p>
+                            {paymentUrl ? (
+                                <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                                    <img src={paymentUrl} alt="Payment" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
+                                    <a href={paymentUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
+                                </div>
+                            ) : <p className="text-xs text-gray-400 italic">No payment uploaded.</p>}
+                        </div>
+                    </div>
                 </div>
 
                 {(reg.adminNote || reg.admin_note) && (

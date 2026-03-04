@@ -307,44 +307,40 @@ app.get('/api/registrations', verifyToken, (req, res) => {
 
 app.post('/api/register', verifyToken, upload.fields([
     { name: 'valid_id', maxCount: 1 },
+    { name: 'proof_of_payment', maxCount: 1 }, // NEW
     { name: 'presentation_file', maxCount: 1 },
     { name: 'video_file', maxCount: 1 }
 ]), (req, res) => {
-    // NEW: Added first_name, last_name, middle_name, gender, age, contact_number
     let { user_email, event_id, companions, reg_role, first_name, last_name, middle_name, gender, age, contact_number } = req.body;
     
     const valid_id_path = req.files && req.files['valid_id'] ? req.files['valid_id'][0].path : null;
+    const proof_of_payment_path = req.files && req.files['proof_of_payment'] ? req.files['proof_of_payment'][0].path : null; // NEW
     const presentation_path = req.files && req.files['presentation_file'] ? req.files['presentation_file'][0].path : null;
     const video_path = req.files && req.files['video_file'] ? req.files['video_file'][0].path : null;
     const role = reg_role || 'participant';
 
     if (typeof companions === 'string') {
-        try { companions = JSON.parse(companions); } 
-        catch (e) { companions = []; }
+        try { companions = JSON.parse(companions); } catch (e) { companions = []; }
     }
 
     db.getConnection((err, connection) => {
         if (err) return res.status(500).json({ error: "Database connection error" });
-
         connection.beginTransaction((err) => {
             if (err) { connection.release(); return res.status(500).json({ error: err.message }); }
             
             connection.query("SELECT id FROM users WHERE email = ?", [user_email], (err, users) => {
-                if (err || users.length === 0) {
-                    return connection.rollback(() => { connection.release(); res.status(404).json({ message: 'User not found' }); });
-                }
+                if (err || users.length === 0) { return connection.rollback(() => { connection.release(); res.status(404).json({ message: 'User not found' }); }); }
                 
-                // NEW: SQL Insert now includes the 6 demographic fields
-                const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, reg_role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number, created_at) VALUES (?, ?, 'For approval', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                // NEW: Added proof_of_payment_path to SQL
+                const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, proof_of_payment_path, reg_role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number, created_at) VALUES (?, ?, 'For approval', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                 
-                connection.query(sqlReg, [users[0].id, event_id, valid_id_path, role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number], (err, result) => {
+                connection.query(sqlReg, [users[0].id, event_id, valid_id_path, proof_of_payment_path, role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number], (err, result) => {
                     if (err) { return connection.rollback(() => { connection.release(); res.status(500).json({ error: err.message }); }); }
                     
                     const regId = result.insertId;
                     if (companions && Array.isArray(companions) && companions.length > 0) {
                         const compSql = "INSERT INTO registration_companions (registration_id, name, relation, phone, email) VALUES ?";
                         const values = companions.map(c => [regId, c.name, c.relation, c.phone, c.email]);
-                        
                         connection.query(compSql, [values], (err) => {
                             if (err) { return connection.rollback(() => { connection.release(); res.status(500).json({ error: "Companion insert failed" }); }); }
                             connection.commit(() => { connection.release(); res.json({ success: true, regId }); });

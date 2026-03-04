@@ -332,7 +332,8 @@
     const [regRole, setRegRole] = useState('participant'); // NEW
     const [participantsCount, setParticipantsCount] = useState(1);
     const [companions, setCompanions] = useState([]); 
-    const [selectedFile, setSelectedFile] = useState(null); 
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [paymentFile, setPaymentFile] = useState(null); 
     const [presentationFile, setPresentationFile] = useState(null); // NEW
     const [videoFile, setVideoFile] = useState(null); // NEW
     
@@ -444,7 +445,8 @@
         university: user?.university || "",
         contact: user?.phone || ""
       });
-      setSelectedFile(null); 
+      setSelectedFile(null);
+      setPaymentFile(null); 
     };
 
     const incrementParticipants = () => {
@@ -480,7 +482,8 @@
           const payload = new FormData();
           payload.append('user_email', formData.email);
           payload.append('event_id', selectedEvent.id);
-          payload.append('valid_id', selectedFile); 
+          payload.append('valid_id', selectedFile);
+          payload.append('proof_of_payment', paymentFile); 
           payload.append('companions', JSON.stringify(companions)); 
           
           payload.append('reg_role', regRole);
@@ -988,10 +991,30 @@
                       <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Mobile Number *</label><input className="u-input-academic" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} required /></div>
                       <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Institution</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} placeholder="e.g. AUP" /></div>
                       
-                      {/* VALID ID UPLOAD */}
-                      <div className="col-span-2">
-                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID (Required) *</label>
-                          <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" onChange={(e) => setSelectedFile(e.target.files[0])} required />
+                      {/* --- PAYMENT ACCOUNT DETAILS --- */}
+                      <div className="col-span-2 bg-[#f8fafc] border border-gray-200 p-4 rounded-xl mt-2">
+                          <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2">
+                              <span>💳</span> Payment Account Details
+                          </p>
+                          <div className="text-xs text-gray-600 space-y-1.5">
+                              <p><span className="font-bold text-gray-800">Bank Name:</span> BPI (Bank of the Philippine Islands)</p>
+                              <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
+                              <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
+                          </div>
+                          <p className="text-[9px] text-gray-400 mt-3 italic leading-relaxed">
+                              Please settle your registration fee via bank transfer before proceeding.
+                          </p>
+                      </div>
+
+                      {/* SEPARATE UPLOADS: ID AND PAYMENT */}
+                      <div className="col-span-2 sm:col-span-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID *</label>
+                          <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer text-xs" onChange={(e) => setSelectedFile(e.target.files[0])} required />
+                      </div>
+
+                      <div className="col-span-2 sm:col-span-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
+                          <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer text-xs" onChange={(e) => setPaymentFile(e.target.files[0])} required />
                       </div>
 
                       {/* NEW: PRESENTER CONDITIONAL UPLOADS */}
