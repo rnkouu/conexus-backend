@@ -1024,7 +1024,7 @@
                             <p className="text-xs font-black text-brand uppercase mb-3">Presenter Requirements</p>
                           </div>
                           <div className="col-span-2 sm:col-span-1">
-                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Presentation</label>
+                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation</label>
                               <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer text-xs" onChange={(e) => setPresentationFile(e.target.files[0])} required={regRole === 'presenter'} />
                           </div>
                           <div className="col-span-2 sm:col-span-1">
