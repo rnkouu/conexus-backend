@@ -127,7 +127,6 @@
         presentationPath: row.presentation_path || null,
         videoPath: row.video_path || null,
         proofOfPaymentPath: row.proof_of_payment_path || null,
-        firstName: row.first_name || "",
         
         // NEW FIELDS: AUP Demographics mapped directly from database
         firstName: row.first_name || "",
@@ -777,6 +776,20 @@
 
     useEffect(() => { fetchSubmissions(); }, []);
 
+    const handleStatusChange = async (id, newStatus) => {
+        try {
+            await fetch(`${API_BASE}/submissions/${id}/status`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ status: newStatus })
+            });
+            fetchSubmissions(); // Refresh the list automatically
+            window.Swal.fire('Success', `Paper marked as ${newStatus.toUpperCase()}!`, 'success');
+        } catch(e) {
+            window.Swal.fire('Error', 'Failed to update status', 'error');
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-start justify-between gap-3">
@@ -827,7 +840,18 @@
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex gap-2 justify-end">
+                                        <div className="flex gap-2 justify-end items-center">
+                                            {/* NEW: Admin Accept/Revoke Buttons */}
+                                            {s.status === 'under_review' ? (
+                                                <button onClick={() => handleStatusChange(s.id, 'accepted')} className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold shadow-sm hover:bg-emerald-100 transition">
+                                                    Accept Paper
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => handleStatusChange(s.id, 'under_review')} className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold shadow-sm hover:bg-amber-100 transition">
+                                                    Revoke Acceptance
+                                                </button>
+                                            )}
+                                            
                                             <a href={`https://conexus-backend-production.up.railway.app/${s.file_path}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-[10px] font-bold shadow-sm hover:bg-gray-50 transition">
                                                 Download Local
                                             </a>
@@ -886,10 +910,6 @@
                 <div className="flex gap-2">
                     <select value={filterEvent} onChange={e => { setFilterEvent(e.target.value); setSelectedIds(new Set()); }} className="text-xs font-bold rounded-xl border border-gray-200 px-3 py-2 bg-white text-gray-600 outline-none focus:border-brand">
                         <option value="all">All Events</option>
-                        {events.map(e => <option key={e.id} value={String(e.id)}>{e.title}</option>)}
-                    </select>
-                    <select value={filterIssued} onChange={e => setFilterIssued(e.target.value)} className="text-xs font-bold rounded-xl border border-gray-200 px-3 py-2 bg-white text-gray-600 outline-none focus:border-brand">
-                        <option value="all">All Statuses</option>
                         <option value="pending">Pending Issuance</option>
                         <option value="issued">Already Issued</option>
                     </select>
@@ -2507,10 +2527,6 @@ Notes / Flags
                     dorms={dorms} 
                     onUpdateStatus={handleUpdateStatus} 
                     
-                    // REPLACE THIS LINE:
-                    // onRevoke={(r) => setRevokeTarget(r)}
-                    
-                    // WITH THIS LINE:
                     onRevoke={async (reg) => {
                         const isPending = reg.status === 'For approval';
                         const { value: note, isConfirmed } = await window.Swal.fire({

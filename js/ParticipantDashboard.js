@@ -146,6 +146,7 @@
     
     // Construct image URL assuming backend is on port 8000
     const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId}` : null;
+    const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath}` : null;
     const companions = Array.isArray(reg.companions) ? reg.companions : [];
 
     // --- ACCOMMODATION LOOKUP LOGIC ---
@@ -247,27 +248,26 @@
                    </div>
                )}
 
-               {/* Valid ID Display */}
-               <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Submitted ID</p>
-                  {fileUrl ? (
-                    <div className="w-full h-40 bg-gray-100 rounded-xl overflow-hidden border border-gray-200 relative group">
-                        <img 
-                            src={fileUrl} 
-                            alt="Valid ID" 
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            onError={(e) => {e.target.style.display='none'; e.target.nextSibling.style.display='flex'}} 
-                        />
-                        <div className="hidden absolute inset-0 items-center justify-center text-xs text-gray-400 font-bold">Preview not available</div>
-                        <a href={fileUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all backdrop-blur-sm">
-                            View Full Image ↗
-                        </a>
-                    </div>
-                  ) : (
-                    <div className="w-full h-24 bg-gray-50 rounded-xl border border-dashed border-gray-200 flex items-center justify-center text-xs text-gray-400 italic">
-                        No ID uploaded.
-                    </div>
-                  )}
+               {/* Valid ID & Payment Display */}
+               <div className="grid grid-cols-2 gap-4">
+                   <div>
+                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Valid ID</p>
+                       {fileUrl ? (
+                           <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                               <img src={fileUrl} alt="ID" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
+                               <a href={fileUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
+                           </div>
+                       ) : <p className="text-xs text-gray-400 italic">No ID uploaded.</p>}
+                   </div>
+                   <div>
+                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Payment</p>
+                       {paymentUrl ? (
+                           <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                               <img src={paymentUrl} alt="Payment" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
+                               <a href={paymentUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
+                           </div>
+                       ) : <p className="text-xs text-gray-400 italic">No payment uploaded.</p>}
+                   </div>
                </div>
 
                {/* Companions List */}
@@ -329,13 +329,13 @@
     const [liveRegs, setLiveRegs] = useState([]);
 
     // --- Registration States ---
-    const [regRole, setRegRole] = useState('participant'); // NEW
+    const [regRole, setRegRole] = useState('participant'); 
     const [participantsCount, setParticipantsCount] = useState(1);
     const [companions, setCompanions] = useState([]); 
     const [selectedFile, setSelectedFile] = useState(null);
     const [paymentFile, setPaymentFile] = useState(null); 
-    const [presentationFile, setPresentationFile] = useState(null); // NEW
-    const [videoFile, setVideoFile] = useState(null); // NEW
+    const [presentationFile, setPresentationFile] = useState(null); 
+    const [videoFile, setVideoFile] = useState(null); 
     
     // --- View/Preview State ---
     const [previewReg, setPreviewReg] = useState(null);
@@ -431,6 +431,9 @@
       return list;
     };
 
+    // NEW: Check if the user has an ACCEPTED paper for the currently selected event
+    const hasAcceptedPaperForSelected = selectedEvent ? submissions.some(s => String(s.eventId) === String(selectedEvent.id) && s.status === 'accepted') : false;
+
     const openRegisterModal = (event) => {
       setSelectedEvent(event);
       setParticipantsCount(1);
@@ -447,6 +450,9 @@
       });
       setSelectedFile(null);
       setPaymentFile(null); 
+      setRegRole('participant');
+      setPresentationFile(null);
+      setVideoFile(null);
     };
 
     const incrementParticipants = () => {
@@ -468,8 +474,8 @@
     };
 
     const handleFinalRegistration = async () => {
-      if (!selectedFile) {
-          window.Swal.fire({ title: 'ID Required', text: 'Please upload a valid ID to proceed.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
+      if (!selectedFile || !paymentFile) {
+          window.Swal.fire({ title: 'Files Required', text: 'Please upload both your Valid ID and Proof of Payment.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
           return;
       }
       if (regRole === 'presenter' && (!presentationFile || !videoFile)) {
@@ -527,7 +533,7 @@
 
     const handlePaperSubmit = async (e) => {
       e.preventDefault();
-      if (!paperForm.title || !paperFile) { setPaperError("Title and PDF file required."); return; }
+      if (!paperForm.title || !paperFile) { setPaperError("Title and document file required."); return; }
       setPaperSaving(true);
       setPaperError("");
       
@@ -643,10 +649,10 @@
             </div>
             <div className="grid grid-cols-2 sm:flex gap-4">
                {[ { l: 'Events', v: upcomingEvents.length }, { l: 'Registrations', v: myEvents.length } ].map((stat, i) => (
-                  <div key={i} className="u-soft rounded-2xl px-6 py-4 min-w-[120px] text-center backdrop-blur-md">
-                    <p className="text-[10px] font-black text-blue-600 uppercase mb-1 tracking-widest">{stat.l}</p>
-                    <p className="text-2xl font-black text-brand">{stat.v}</p>
-                  </div>
+                 <div key={i} className="u-soft rounded-2xl px-6 py-4 min-w-[120px] text-center backdrop-blur-md">
+                   <p className="text-[10px] font-black text-blue-600 uppercase mb-1 tracking-widest">{stat.l}</p>
+                   <p className="text-2xl font-black text-brand">{stat.v}</p>
+                 </div>
                ))}
             </div>
           </div>
@@ -963,10 +969,22 @@
                  </div>
                  <form onSubmit={(e) => { e.preventDefault(); setPendingPayload({event: selectedEvent, formData}); setConfirmOpen(true); }} className="p-8 space-y-4">
                     
-                    {/* NEW: ROLE SELECTOR */}
+                    {/* NEW: ROLE SELECTOR WITH LOCK LOGIC */}
                     <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
                       <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
-                      <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
+                      
+                      {hasAcceptedPaperForSelected ? (
+                          <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
+                      ) : (
+                          <div className="flex-1 relative group h-full">
+                              <button type="button" disabled className="w-full h-full py-2 text-xs font-bold rounded-lg transition-all text-gray-400 bg-gray-200 cursor-not-allowed border border-gray-300">
+                                  Presenter 🔒
+                              </button>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-gray-900 text-white text-[10px] text-center rounded-lg p-3 shadow-xl z-50 leading-relaxed">
+                                  You must submit a Full Paper and receive a <b>Notice of Acceptance</b> from the Admin before you can register and pay as a Presenter.
+                              </div>
+                          </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1024,7 +1042,7 @@
                             <p className="text-xs font-black text-brand uppercase mb-3">Presenter Requirements</p>
                           </div>
                           <div className="col-span-2 sm:col-span-1">
-                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation</label>
+                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck</label>
                               <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer text-xs" onChange={(e) => setPresentationFile(e.target.files[0])} required={regRole === 'presenter'} />
                           </div>
                           <div className="col-span-2 sm:col-span-1">
