@@ -306,6 +306,62 @@
       'Authorization': `Bearer ${token}`
     };
   };
+// --- MULTI-STEP REGISTRATION SUB-COMPONENTS ---
+  function Step1Form({ formData, setFormData, hasAcceptedPaperForSelected, regRole, setRegRole, selectedFile, setSelectedFile, onNext, onCancel }) {
+    return (
+      <form onSubmit={(e) => { e.preventDefault(); onNext(); }} className="p-8 space-y-4">
+        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
+          <button type="button" onClick={() => setRegRole('participant')} className={classNames("flex-1 py-2 text-xs font-bold rounded-lg transition-all", regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500')}>Participant</button>
+          {hasAcceptedPaperForSelected ? (
+            <button type="button" onClick={() => setRegRole('presenter')} className={classNames("flex-1 py-2 text-xs font-bold rounded-lg transition-all", regRole === 'presenter' ? 'bg-brand text-white shadow' : 'text-gray-500')}>Event Presenter</button>
+          ) : (
+            <button type="button" disabled className="flex-1 py-2 text-xs font-bold rounded-lg bg-gray-200 text-gray-400 cursor-not-allowed">Presenter 🔒</button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} required /></div>
+          <div className="col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase">First Name *</label><input className="u-input-academic" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} required /></div>
+          <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase">Institution</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData({...formData, university: e.target.value})} placeholder="e.g. AUP" /></div>
+          <div className="col-span-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase">Upload Valid ID / Faculty ID *</label>
+            <input type="file" accept="image/*" className="u-input-academic text-xs" onChange={(e) => setSelectedFile(e.target.files[0])} required />
+          </div>
+        </div>
+        <div className="flex gap-2 pt-6 border-t border-gray-100 justify-end">
+          <button type="button" onClick={onCancel} className="px-5 py-2 text-xs font-extrabold text-gray-500">Cancel</button>
+          <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold">Next: Payment Details</button>
+        </div>
+      </form>
+    );
+  }
+
+  function Step2Form({ isAUP, paymentFile, setPaymentFile, onNext, onBack }) {
+    return (
+      <div className="p-8 space-y-6">
+        {isAUP ? (
+          <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center">
+            <div className="text-3xl mb-2">🎓</div>
+            <p className="text-sm text-blue-800 font-bold">AUP Faculty Account Detected</p>
+            <p className="text-xs text-blue-600 mt-2 leading-relaxed">Registration fees are waived for AUP Faculty. We will verify your Faculty ID uploaded in Step 1.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl text-xs">
+              <p className="font-black text-brand uppercase mb-2">BPI Payment Details</p>
+              <p>Acc Name: Adventist University of the Philippines</p>
+              <p>Acc Num: <span className="font-mono font-bold">8921003316</span></p>
+            </div>
+            <label className="text-[10px] font-black text-gray-400 uppercase">Upload Proof of Payment *</label>
+            <input type="file" accept="image/*" className="u-input-academic text-xs" onChange={(e) => setPaymentFile(e.target.files[0])} required />
+          </div>
+        )}
+        <div className="flex gap-2 justify-end pt-4 border-t border-gray-100">
+          <button onClick={onBack} className="px-5 py-2 text-xs font-extrabold text-gray-500">Back</button>
+          <button onClick={onNext} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold">Submit Registration</button>
+        </div>
+      </div>
+    );
+  }
 
   function ParticipantDashboard({
     user,
@@ -319,9 +375,19 @@
     onUpdateUser
   }) {
     const [tab, setTab] = useState("upcoming");
+    const [currentRegStep, setCurrentRegStep] = useState(1);
+    
+    // Use regular initial state so we can calculate it on each render properly
+    const [formData, setFormData] = useState({ firstName: "", lastName: "", middleName: "", gender: "", age: "", email: "", university: "", contact: "" });
+    const isAUP = formData.university?.toLowerCase().includes("aup");
+
+    const handleStep1Submit = () => {
+        if (!selectedFile) return window.Swal.fire('ID Required', 'Please upload your ID first.', 'warning');
+        setCurrentRegStep(2);
+    };
+    
     const [filterType, setFilterType] = useState("all");
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [formData, setFormData] = useState({ firstName: "", lastName: "", middleName: "", gender: "", age: "", email: "", university: "", contact: "" });
     
     // --- Room & Dorm State (Fetched automatically now) ---
     const [localRooms, setLocalRooms] = useState([]);
@@ -436,6 +502,7 @@
 
     const openRegisterModal = (event) => {
       setSelectedEvent(event);
+      setCurrentRegStep(1); // Reset to Step 1 upon opening
       setParticipantsCount(1);
       setCompanions([]); 
       setFormData({
@@ -474,7 +541,7 @@
     };
 
     const handleFinalRegistration = async () => {
-      if (!selectedFile || !paymentFile) {
+      if (!selectedFile || (!paymentFile && !isAUP)) {
           window.Swal.fire({ title: 'Files Required', text: 'Please upload both your Valid ID and Proof of Payment.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
           return;
       }
@@ -489,7 +556,7 @@
           payload.append('user_email', formData.email);
           payload.append('event_id', selectedEvent.id);
           payload.append('valid_id', selectedFile);
-          payload.append('proof_of_payment', paymentFile); 
+          if (paymentFile) payload.append('proof_of_payment', paymentFile); 
           payload.append('companions', JSON.stringify(companions)); 
           
           payload.append('reg_role', regRole);
@@ -967,131 +1034,164 @@
                     <h3 className="text-xl md:text-2xl font-extrabold">Event Registration</h3>
                     <p className="text-xs text-white/75 mt-1">Enrolling in: <strong className="text-[var(--u-gold)]">{selectedEvent.title}</strong></p>
                  </div>
-                 <form onSubmit={(e) => { e.preventDefault(); setPendingPayload({event: selectedEvent, formData}); setConfirmOpen(true); }} className="p-8 space-y-4">
+
+                 {/* MULTI-STEP REGISTRATION FORM LOGIC HOOKED UP HERE */}
+                 <form onSubmit={(e) => { 
+                     e.preventDefault(); 
+                     if (currentRegStep === 1) {
+                         handleStep1Submit();
+                     } else {
+                         setPendingPayload({event: selectedEvent, formData}); 
+                         setConfirmOpen(true); 
+                     }
+                 }} className="p-8 space-y-4">
                     
-                    {/* NEW: ROLE SELECTOR WITH LOCK LOGIC */}
-                    <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
-                      <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
-                      
-                      {hasAcceptedPaperForSelected ? (
-                          <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
-                      ) : (
-                          <div className="flex-1 relative group h-full">
-                              <button type="button" disabled className="w-full h-full py-2 text-xs font-bold rounded-lg transition-all text-gray-400 bg-gray-200 cursor-not-allowed border border-gray-300">
-                                  Presenter 🔒
-                              </button>
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-gray-900 text-white text-[10px] text-center rounded-lg p-3 shadow-xl z-50 leading-relaxed">
-                                  You must submit a Full Paper and receive a <b>Notice of Acceptance</b> from the Admin before you can register and pay as a Presenter.
+                    {/* --- STEP 1: Personal Details --- */}
+                    {currentRegStep === 1 && (
+                      <div className="animate-fade-in-up space-y-4">
+                        {/* NEW: ROLE SELECTOR WITH LOCK LOGIC */}
+                        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
+                          <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
+                          
+                          {hasAcceptedPaperForSelected ? (
+                              <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
+                          ) : (
+                              <div className="flex-1 relative group h-full">
+                                  <button type="button" disabled className="w-full h-full py-2 text-xs font-bold rounded-lg transition-all text-gray-400 bg-gray-200 cursor-not-allowed border border-gray-300">
+                                      Presenter 🔒
+                                  </button>
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-gray-900 text-white text-[10px] text-center rounded-lg p-3 shadow-xl z-50 leading-relaxed">
+                                      You must submit a Full Paper and receive a <b>Notice of Acceptance</b> from the Admin before you can register and pay as a Presenter.
+                                  </div>
+                              </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* AUP Requirements: Name Breakdown */}
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} required /></div>
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">First Name *</label><input className="u-input-academic" value={formData.firstName} onChange={e => setFormData(p=>({...p, firstName: e.target.value}))} required /></div>
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Middle Name</label><input className="u-input-academic" value={formData.middleName} onChange={e => setFormData(p=>({...p, middleName: e.target.value}))} /></div>
+                          
+                          {/* Read-Only Email */}
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email *</label><input className="u-input-academic bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200 shadow-inner" type="email" value={formData.email} readOnly title="Email is tied to your account." /></div>
+                          
+                          {/* AUP Demographics */}
+                          <div className="col-span-2 sm:col-span-1">
+                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Gender *</label>
+                              <select className="u-input-academic" value={formData.gender} onChange={e => setFormData(p=>({...p, gender: e.target.value}))} required>
+                                  <option value="">Select...</option>
+                                  <option value="Female">Female</option>
+                                  <option value="Male">Male</option>
+                              </select>
+                          </div>
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Age *</label><input type="number" className="u-input-academic" value={formData.age} onChange={e => setFormData(p=>({...p, age: e.target.value}))} required /></div>
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Mobile Number *</label><input className="u-input-academic" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} required /></div>
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Institution</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} placeholder="e.g. AUP" /></div>
+                          
+                          {/* ID UPLOAD */}
+                          <div className="col-span-2">
+                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID *</label>
+                              <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer text-xs" onChange={(e) => setSelectedFile(e.target.files[0])} required />
+                          </div>
+
+                          {/* NEW: PRESENTER CONDITIONAL UPLOADS */}
+                          {regRole === 'presenter' && (
+                            <>
+                              <div className="col-span-2 border-t border-gray-100 pt-4 mt-2">
+                                <p className="text-xs font-black text-brand uppercase mb-3">Presenter Requirements</p>
+                              </div>
+                              <div className="col-span-2 sm:col-span-1">
+                                  <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck</label>
+                                  <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer text-xs" onChange={(e) => setPresentationFile(e.target.files[0])} required={regRole === 'presenter'} />
+                              </div>
+                              <div className="col-span-2 sm:col-span-1">
+                                  <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4)</label>
+                                  <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer text-xs" onChange={(e) => setVideoFile(e.target.files[0])} required={regRole === 'presenter'} />
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-6 border-t border-gray-100">
+                          <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-black text-gray-400 uppercase">Attendees</span>
+                              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                                 <button type="button" onClick={decrementParticipants} className="w-8 h-8 font-bold">-</button>
+                                 <span className="px-4 font-black text-brand">{participantsCount}</span>
+                                 <button type="button" onClick={incrementParticipants} className="w-8 h-8 font-bold">+</button>
                               </div>
                           </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* AUP Requirements: Name Breakdown */}
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} required /></div>
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">First Name *</label><input className="u-input-academic" value={formData.firstName} onChange={e => setFormData(p=>({...p, firstName: e.target.value}))} required /></div>
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Middle Name</label><input className="u-input-academic" value={formData.middleName} onChange={e => setFormData(p=>({...p, middleName: e.target.value}))} /></div>
-                      
-                      {/* Read-Only Email */}
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email *</label><input className="u-input-academic bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200 shadow-inner" type="email" value={formData.email} readOnly title="Email is tied to your account." /></div>
-                      
-                      {/* AUP Demographics */}
-                      <div className="col-span-2 sm:col-span-1">
-                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Gender *</label>
-                          <select className="u-input-academic" value={formData.gender} onChange={e => setFormData(p=>({...p, gender: e.target.value}))} required>
-                              <option value="">Select...</option>
-                              <option value="Female">Female</option>
-                              <option value="Male">Male</option>
-                          </select>
-                      </div>
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Age *</label><input type="number" className="u-input-academic" value={formData.age} onChange={e => setFormData(p=>({...p, age: e.target.value}))} required /></div>
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Mobile Number *</label><input className="u-input-academic" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} required /></div>
-                      <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Institution</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} placeholder="e.g. AUP" /></div>
-                      
-                      {/* --- PAYMENT ACCOUNT DETAILS --- */}
-                      <div className="col-span-2 bg-[#f8fafc] border border-gray-200 p-4 rounded-xl mt-2">
-                          <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2">
-                              <span>💳</span> Payment Account Details
-                          </p>
-                          <div className="text-xs text-gray-600 space-y-1.5">
-                              <p><span className="font-bold text-gray-800">Bank Name:</span> BPI (Bank of the Philippine Islands)</p>
-                              <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
-                              <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
+                          <div className="flex gap-2">
+                              <button type="button" onClick={() => setSelectedEvent(null)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
+                              <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step</button>
                           </div>
-                          <p className="text-[9px] text-gray-400 mt-3 italic leading-relaxed">
-                              Please settle your registration fee via bank transfer before proceeding.
-                          </p>
-                      </div>
+                        </div>
 
-                      {/* SEPARATE UPLOADS: ID AND PAYMENT */}
-                      <div className="col-span-2 sm:col-span-1">
-                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID *</label>
-                          <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer text-xs" onChange={(e) => setSelectedFile(e.target.files[0])} required />
-                      </div>
-
-                      <div className="col-span-2 sm:col-span-1">
-                          <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
-                          <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer text-xs" onChange={(e) => setPaymentFile(e.target.files[0])} required />
-                      </div>
-
-                      {/* NEW: PRESENTER CONDITIONAL UPLOADS */}
-                      {regRole === 'presenter' && (
-                        <>
-                          <div className="col-span-2 border-t border-gray-100 pt-4 mt-2">
-                            <p className="text-xs font-black text-brand uppercase mb-3">Presenter Requirements</p>
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck</label>
-                              <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer text-xs" onChange={(e) => setPresentationFile(e.target.files[0])} required={regRole === 'presenter'} />
-                          </div>
-                          <div className="col-span-2 sm:col-span-1">
-                              <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4)</label>
-                              <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer text-xs" onChange={(e) => setVideoFile(e.target.files[0])} required={regRole === 'presenter'} />
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-6 border-t border-gray-100">
-                      <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-black text-gray-400 uppercase">Attendees</span>
-                          <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                             <button type="button" onClick={decrementParticipants} className="w-8 h-8 font-bold">-</button>
-                             <span className="px-4 font-black text-brand">{participantsCount}</span>
-                             <button type="button" onClick={incrementParticipants} className="w-8 h-8 font-bold">+</button>
-                          </div>
-                      </div>
-                      <div className="flex gap-2">
-                          <button type="button" onClick={() => setSelectedEvent(null)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
-                          <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Proceed</button>
-                      </div>
-                    </div>
-
-                    {/* DYNAMIC COMPANION INPUTS */}
-                    {companions.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in-up">
-                        <h4 className="text-xs font-black text-brand uppercase mb-3">Additional Attendees</h4>
-                        <div className="space-y-4 max-h-60 overflow-y-auto pr-2 scrollbar-hide">
-                          {companions.map((comp, index) => (
-                            <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                              <p className="text-[10px] font-bold text-blue-500 uppercase mb-2">Guest {index + 1}</p>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="col-span-2 sm:col-span-1">
-                                  <input className="u-input-academic text-xs" placeholder="Full Name" value={comp.name} onChange={e => handleCompanionChange(index, "name", e.target.value)} required />
+                        {/* DYNAMIC COMPANION INPUTS */}
+                        {companions.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in-up">
+                            <h4 className="text-xs font-black text-brand uppercase mb-3">Additional Attendees</h4>
+                            <div className="space-y-4 max-h-60 overflow-y-auto pr-2 scrollbar-hide">
+                              {companions.map((comp, index) => (
+                                <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                  <p className="text-[10px] font-bold text-blue-500 uppercase mb-2">Guest {index + 1}</p>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2 sm:col-span-1">
+                                      <input className="u-input-academic text-xs" placeholder="Full Name" value={comp.name} onChange={e => handleCompanionChange(index, "name", e.target.value)} required />
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-1">
+                                      <input className="u-input-academic text-xs" placeholder="Relation" value={comp.relation} onChange={e => handleCompanionChange(index, "relation", e.target.value)} />
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-1">
+                                      <input className="u-input-academic text-xs" placeholder="Email (Optional)" value={comp.email} onChange={e => handleCompanionChange(index, "email", e.target.value)} />
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-1">
+                                      <input className="u-input-academic text-xs" placeholder="Phone (Optional)" value={comp.phone} onChange={e => handleCompanionChange(index, "phone", e.target.value)} />
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                  <input className="u-input-academic text-xs" placeholder="Relation" value={comp.relation} onChange={e => handleCompanionChange(index, "relation", e.target.value)} />
-                                </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                  <input className="u-input-academic text-xs" placeholder="Email (Optional)" value={comp.email} onChange={e => handleCompanionChange(index, "email", e.target.value)} />
-                                </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                  <input className="u-input-academic text-xs" placeholder="Phone (Optional)" value={comp.phone} onChange={e => handleCompanionChange(index, "phone", e.target.value)} />
-                                </div>
-                              </div>
+                              ))}
                             </div>
-                          ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* --- STEP 2: Payment Details --- */}
+                    {currentRegStep === 2 && (
+                      <div className="animate-fade-in-up space-y-4">
+                        {isAUP ? (
+                          <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center mb-4">
+                            <div className="text-3xl mb-2">🎓</div>
+                            <p className="text-sm text-blue-800 font-bold">AUP Faculty Account Detected</p>
+                            <p className="text-xs text-blue-600 mt-2 leading-relaxed">Registration fees are waived for AUP Faculty. We will verify your Faculty ID uploaded in Step 1.</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl mt-2">
+                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    <span>💳</span> Payment Account Details
+                                </p>
+                                <div className="text-xs text-gray-600 space-y-1.5">
+                                    <p><span className="font-bold text-gray-800">Bank Name:</span> BPI (Bank of the Philippine Islands)</p>
+                                    <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
+                                    <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
+                                </div>
+                                <p className="text-[9px] text-gray-400 mt-3 italic leading-relaxed">
+                                    Please settle your registration fee via bank transfer before proceeding.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
+                                <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer text-xs" onChange={(e) => setPaymentFile(e.target.files[0])} required={!isAUP} />
+                            </div>
+                          </>
+                        )}
+                        
+                        <div className="flex items-center justify-end pt-6 border-t border-gray-100 gap-2">
+                            <button type="button" onClick={() => setCurrentRegStep(1)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
+                            <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Proceed</button>
                         </div>
                       </div>
                     )}
