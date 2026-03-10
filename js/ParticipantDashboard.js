@@ -179,7 +179,7 @@
                        {fileUrl ? (
                            <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
                                <img src={fileUrl} alt="ID" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
-                               <a href={fileUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
+                               <a href={fileUrl} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
                            </div>
                        ) : <p className="text-xs text-gray-400 italic">No ID uploaded.</p>}
                    </div>
@@ -188,7 +188,7 @@
                        {paymentUrl ? (
                            <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
                                <img src={paymentUrl} alt="Payment" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
-                               <a href={paymentUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
+                               <a href={paymentUrl} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
                            </div>
                        ) : <p className="text-xs text-gray-400 italic">No payment uploaded.</p>}
                    </div>
@@ -289,9 +289,9 @@
           fetch(`${API_BASE}/registrations`, { headers: getAuthHeaders() })
             .then(r => r.ok ? r.json() : [])
             .then(data => {
-                if(Array.isArray(data) && user?.email) {
-                    const myRawData = data.filter(d => String(d.user_email || d.userEmail).toLowerCase() === String(user.email).toLowerCase());
-                    setLiveRegs(myRawData);
+                // The backend automatically filters by the user's token.
+                if(Array.isArray(data)) {
+                    setLiveRegs(data);
                 }
             })
             .catch(console.error);
@@ -300,32 +300,43 @@
       fetchLiveRegs();
       const interval = setInterval(fetchLiveRegs, 3000); 
       return () => clearInterval(interval);
-    }, [user]);
+    }, []); // Empty dependency array ensures it runs consistently
 
     useEffect(() => { if (Array.isArray(submissionsProp)) setSubmissions(submissionsProp.map(normalizeSubmission)); }, [submissionsProp]);
     useEffect(() => { let id; if (selectedEvent) { setModalVisible(false); id = setTimeout(() => setModalVisible(true), 10); } else { setModalVisible(false); } return () => id && clearTimeout(id); }, [selectedEvent]);
     useEffect(() => { if (tab !== "upcoming") return; setAnimateUpcoming(false); setTimeout(() => setAnimateUpcoming(true), 10); }, [tab, events?.length]);
 
     const upcomingEvents = Array.isArray(events) ? events.filter((e) => !e.past) : [];
-    const baseEvents = Array.isArray(registrations) ? registrations : [];
     
-    // Merge live data and map event mode for conditional video uploads
-    const myEvents = baseEvents.map(baseReg => {
-        const liveMatch = liveRegs.find(live => String(live.id) === String(baseReg.id));
-        const evt = (events || []).find(e => String(e.id) === String(baseReg.eventId || baseReg.event_id));
+    // --- FIX: COMBINE PROP REGISTRATIONS WITH LIVE DATA ---
+    const allRegsMap = new Map();
+    (Array.isArray(registrations) ? registrations : []).forEach(reg => {
+        if(reg && reg.id) allRegsMap.set(String(reg.id), reg);
+    });
+    // Live data takes precedence and overwrites any stale prop data
+    liveRegs.forEach(reg => {
+        if(reg && reg.id) allRegsMap.set(String(reg.id), reg);
+    });
+    
+    const combinedRegs = Array.from(allRegsMap.values());
+    
+    // Calculate final myEvents directly from the combined map
+    const myEvents = combinedRegs.map(liveMatch => {
+        const evt = (events || []).find(e => String(e.id) === String(liveMatch.eventId || liveMatch.event_id));
         return {
-            ...baseReg,
-            eventTitle: evt?.title || baseReg.eventTitle,
-            mode: evt?.mode || baseReg.mode || '',
-            university: liveMatch?.university || baseReg.university || "",
-            regRole: liveMatch?.reg_role || baseReg.reg_role || baseReg.regRole || 'participant',
-            room_id: liveMatch?.room_id || liveMatch?.roomId || baseReg.roomId || baseReg.room_id || null,
-            adminNote: liveMatch?.admin_note || baseReg.adminNote || null,
-            status: liveMatch?.status || baseReg.status,
-            paymentStatus: liveMatch?.payment_status || liveMatch?.paymentStatus || baseReg.payment_status || baseReg.paymentStatus || 'Pending',
-            proofOfPaymentPath: liveMatch?.proof_of_payment || baseReg.proofOfPaymentPath || null,
-            presentationPath: liveMatch?.presentation_file || baseReg.presentation_file || null,
-            certificate_issued_at: liveMatch?.certificate_issued_at || baseReg.certificate_issued_at || baseReg.certificateIssuedAt || null
+            ...liveMatch,
+            eventTitle: evt?.title || liveMatch.eventTitle || liveMatch.event_title || "Unknown Event",
+            mode: evt?.mode || liveMatch.mode || '',
+            university: liveMatch.university_org || liveMatch.university || "",
+            regRole: liveMatch.reg_role || liveMatch.regRole || 'participant',
+            roomId: liveMatch.room_id || liveMatch.roomId || null,
+            adminNote: liveMatch.admin_note || liveMatch.adminNote || null,
+            status: liveMatch.status || "Pending",
+            paymentStatus: liveMatch.payment_status || liveMatch.paymentStatus || 'Pending',
+            proofOfPaymentPath: liveMatch.proof_of_payment_path || liveMatch.proofOfPaymentPath || null,
+            presentationPath: liveMatch.presentation_path || liveMatch.presentationPath || null,
+            videoPath: liveMatch.video_path || liveMatch.videoPath || null,
+            certificateIssuedAt: liveMatch.certificate_issued_at || liveMatch.certificateIssuedAt || null
         };
     });
 
@@ -430,7 +441,6 @@
       }
     };
 
-    // --- PRESENTER STEPS 3 & 4 LOGIC (SPLIT & GATED) ---
     const handleCompletePresenterRegistration = async (e, step) => {
         e.preventDefault();
         setSaving(true);
@@ -495,13 +505,13 @@
 
         setPaperForm({ eventId: "", title: "", track: "General Research", abstract: "" });
         setPaperFileName("");
-        setTab("my"); // Auto redirect back to registrations to see pending status
+        setTab("my"); 
       } catch (err) { setPaperError("Submission failed."); } finally { setPaperSaving(false); }
     };
 
     const handleDownloadCertificate = (reg) => {
         const printWindow = window.open('', '_blank');
-        const issueDate = reg.certificate_issued_at ? new Date(reg.certificate_issued_at).toLocaleDateString() : new Date().toLocaleDateString();
+        const issueDate = reg.certificateIssuedAt ? new Date(reg.certificateIssuedAt).toLocaleDateString() : new Date().toLocaleDateString();
         const verifyUrl = `https://cconexus.vercel.app/?verify=${reg.id}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
         
@@ -680,7 +690,58 @@
                   const isPaymentApproved = reg.paymentStatus === 'Approved';
                   const hasPresentation = !!(reg.presentationPath);
 
-                  // --- NEW STRICT PHASE LOGIC FOR PARTICIPANT DASHBOARD ---
+                  // --- FIX: DYNAMIC STATUS BADGE ---
+                  let displayStatus = status;
+                  let badgeColorClass = "bg-gray-100 text-gray-600 border-gray-200"; 
+                  let icon = "⏳";
+                  
+                  if (status === "Rejected") {
+                      displayStatus = "Rejected";
+                      badgeColorClass = "bg-red-50 text-red-600 border-red-200";
+                      icon = "❌";
+                  } else if (status === "Approved") {
+                      displayStatus = "Approved";
+                      badgeColorClass = "bg-emerald-50 text-emerald-600 border-emerald-200";
+                      icon = "✅";
+                  } else if (status === "Step 1 Approved") {
+                      if (isPresenter) {
+                          if (hasPresentation) {
+                              displayStatus = "Final Review Pending";
+                              badgeColorClass = "bg-amber-50 text-amber-600 border-amber-200";
+                          } else if (isPaymentApproved || isAUP) {
+                              displayStatus = "Payment Verified";
+                              badgeColorClass = "bg-blue-50 text-blue-600 border-blue-200";
+                          } else if (hasPayment) {
+                              displayStatus = "Payment Under Review";
+                              badgeColorClass = "bg-amber-50 text-amber-600 border-amber-200";
+                          } else if (isPaperAccepted) {
+                              displayStatus = "Paper Accepted";
+                              badgeColorClass = "bg-blue-50 text-blue-600 border-blue-200";
+                          } else if (paperForThisEvent) {
+                              displayStatus = "Paper Under Review";
+                              badgeColorClass = "bg-amber-50 text-amber-600 border-amber-200";
+                          } else {
+                              displayStatus = "Step 1 Approved";
+                              badgeColorClass = "bg-blue-50 text-blue-600 border-blue-200";
+                          }
+                      } else {
+                          if (isPaymentApproved || isAUP) {
+                              displayStatus = "Payment Verified";
+                              badgeColorClass = "bg-blue-50 text-blue-600 border-blue-200";
+                          } else if (hasPayment) {
+                              displayStatus = "Payment Under Review";
+                              badgeColorClass = "bg-amber-50 text-amber-600 border-amber-200";
+                          } else {
+                              displayStatus = "Step 1 Approved";
+                              badgeColorClass = "bg-blue-50 text-blue-600 border-blue-200";
+                          }
+                      }
+                  } else {
+                      displayStatus = status; // "For approval"
+                      badgeColorClass = "bg-amber-50 text-amber-600 border-amber-200";
+                  }
+
+                  // --- NEW STRICT PHASE LOGIC FOR INSTRUCTION BOX ---
                   let phaseUI = null;
                   if (isPresenter) {
                       if (!isStep1Approved && status !== 'Rejected') {
@@ -797,12 +858,15 @@
                       <div className="flex justify-between items-start mb-6">
                         <div className={classNames(
                             "h-14 w-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner",
-                            status === "Rejected" ? "bg-red-50" : "bg-[var(--u-sky)]"
+                            status === "Rejected" ? "bg-red-50" : 
+                            isApproved ? "bg-emerald-50" : 
+                            "bg-[var(--u-sky)]"
                         )}>
-                          {isApproved ? "✅" : status === "Rejected" ? "❌" : "⏳"}
+                          {icon}
                         </div>
-                        <span className={classNames("status-pill", `status-${status.replace(/\s+/g, '-')}`)}>
-                          {status}
+                        {/* Dynamic Badge Display */}
+                        <span className={classNames("status-pill border", badgeColorClass)}>
+                          {displayStatus}
                         </span>
                       </div>
 
@@ -840,7 +904,7 @@
                           </button>
                         )}
 
-                        {isApproved && reg.certificate_issued_at && (
+                        {isApproved && reg.certificateIssuedAt && (
                           <button 
                             onClick={() => handleDownloadCertificate(reg)}
                             className="flex-1 min-w-[100%] py-3 rounded-xl bg-[var(--u-gold)] text-[var(--u-navy)] text-[10px] font-black uppercase tracking-widest shadow-md hover:brightness-105 transition-all mt-1"
@@ -1037,7 +1101,6 @@
                         <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
                           <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
                           
-                          {/* Presenter is now freely selectable to start Step 1 */}
                           <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
                         </div>
 
