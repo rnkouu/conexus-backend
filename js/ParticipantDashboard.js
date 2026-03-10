@@ -306,7 +306,8 @@
       'Authorization': `Bearer ${token}`
     };
   };
-// --- MULTI-STEP REGISTRATION SUB-COMPONENTS ---
+
+  // --- MULTI-STEP REGISTRATION SUB-COMPONENTS ---
   function Step1Form({ formData, setFormData, hasAcceptedPaperForSelected, regRole, setRegRole, selectedFile, setSelectedFile, onNext, onCancel }) {
     return (
       <form onSubmit={(e) => { e.preventDefault(); onNext(); }} className="p-8 space-y-4">
@@ -570,7 +571,7 @@
           payload.append('age', formData.age);
           payload.append('contact_number', formData.contact);
           
-          // --> MISSING LINE ADDED HERE <--
+          // Added University Field Here
           payload.append('university', formData.university); 
 
           const token = localStorage.getItem('conexus_token'); 
@@ -813,10 +814,10 @@
                 </div>
               ) : (
                 myEvents.map((reg, idx) => {
-  const status = reg.status || "Pending";
-  const isApproved = status === "Approved";
-  return (
-    <div key={`reg-${reg.id}-${idx}`} className="reg-card rounded-[2.5rem] p-7 shadow-sm">
+                  const status = reg.status || "Pending";
+                  const isApproved = status === "Approved";
+                  return (
+                    <div key={`reg-${reg.id}-${idx}`} className="reg-card rounded-[2.5rem] p-7 shadow-sm">
                       <div className="flex justify-between items-start mb-6">
                         <div className={classNames(
                             "h-14 w-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner",
@@ -993,7 +994,7 @@
                               </tr>
                           ) : (
                               visibleSubmissions.map((s, idx) => (
-  <tr key={`sub-${s.id}-${idx}`} className="hover:bg-gray-50/50 transition-colors">
+                                <tr key={`sub-${s.id}-${idx}`} className="hover:bg-gray-50/50 transition-colors">
                                   <td className="px-6 py-5">
                                     <p className="font-extrabold text-brand max-w-sm truncate" title={s.title}>{s.title}</p>
                                     <p className="text-[10px] text-gray-400 font-bold mt-0.5">{s.fileName}</p>
