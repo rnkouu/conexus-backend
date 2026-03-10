@@ -1108,8 +1108,17 @@
                       {/* 1. Participant Info */}
                       <td className="px-6 py-4 align-middle">
                         <div className="flex flex-col">
-                            <span className="text-sm font-bold text-gray-900 group-hover:text-brand transition-colors">{r.fullName}</span>
-                            <span className="text-xs text-gray-500 mt-0.5">{r.userEmail}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-gray-900 group-hover:text-brand transition-colors">{r.fullName}</span>
+                                {r.regRole === 'presenter' && (
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest bg-amber-100 text-amber-700 border border-amber-200">
+                                        Presenter
+                                    </span>
+                                )}
+                            </div>
+                            <span className="text-xs text-gray-500 mt-0.5">
+                                {r.userEmail} {r.university ? ` • ${r.university}` : ''}
+                            </span>
                             <span className="text-[10px] text-brand bg-blue-50 border border-blue-100 mt-1.5 px-2 py-0.5 rounded-md w-fit font-semibold">{r.eventTitle}</span>
                         </div>
                       </td>
