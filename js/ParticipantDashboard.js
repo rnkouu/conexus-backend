@@ -244,7 +244,8 @@
 
     const [filterType, setFilterType] = useState("all");
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [completingReg, setCompletingReg] = useState(null); // Used for Presenter Step 3 & 4
+    const [completingReg, setCompletingReg] = useState(null); // Used for Presenter Step 3 & 4 Modal
+    const [completingStep, setCompletingStep] = useState(3);  // Tracks which step (3 or 4) they are on inside the completing modal
     
     const [localRooms, setLocalRooms] = useState([]);
     const [localDorms, setLocalDorms] = useState([]);
@@ -434,6 +435,7 @@
 
             window.Swal.fire({ title: 'Files Uploaded!', text: 'Your Payment and Presentation files have been submitted for final review.', icon: 'success', confirmButtonColor: '#1e5aa8' });
             setCompletingReg(null);
+            setCompletingStep(3); // Reset
             setPaymentFile(null);
             setPresentationFile(null);
             setVideoFile(null);
@@ -519,7 +521,7 @@
         printWindow.document.close();
     };
 
-    // --- FIX: RESTORED 4-STEP VISUAL FOR PRESENTER, 2-STEP FOR PARTICIPANT ---
+    // --- MAIN MODAL STEPPER ---
     const stepperSteps = regRole === 'participant' 
         ? [ { step: 1, label: 'Details' }, { step: 2, label: 'Payment' } ]
         : [ { step: 1, label: 'Details' }, { step: 2, label: 'Paper' }, { step: 3, label: 'Payment' }, { step: 4, label: 'Files' } ];
@@ -704,7 +706,7 @@
                                 )}
 
                                 {isPaperAccepted && !hasCompletedFiles && (
-                                    <button onClick={() => setCompletingReg(reg)} className="flex-1 min-w-[100%] py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors mt-1">
+                                    <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors mt-1">
                                         Step 3 & 4: Upload Final Files
                                     </button>
                                 )}
@@ -1007,50 +1009,108 @@
           </div>
         )}
 
-        {/* --- PRESENTER STEP 3 & 4 MODAL --- */}
+        {/* --- PRESENTER STEP 3 & 4 MODAL (NOW SPLIT INTO SEPARATE PAGES) --- */}
         {completingReg && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setCompletingReg(null)}>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => {setCompletingReg(null); setCompletingStep(3);}}>
             <div className="w-full max-w-lg animate-fade-in-up my-auto" onClick={e => e.stopPropagation()}>
               <div className="rounded-[2.5rem] overflow-hidden u-card bg-white">
                 <div className="px-8 py-6 bg-[var(--u-navy)] text-white relative">
                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--u-gold)]" />
                    <h3 className="text-xl font-extrabold">Complete Presenter Registration</h3>
-                   <p className="text-xs text-white/75 mt-1">Steps 3 & 4: Payment and Presentation Files</p>
+                   <p className="text-xs text-white/75 mt-1">Finalizing your registration files.</p>
                 </div>
 
-                <form onSubmit={handleCompletePresenterRegistration} className="p-8 space-y-5">
+                {/* --- COMPLETED STEPS TRACKER --- */}
+                <div className="px-10 pt-8 pb-4 border-b border-gray-50">
+                    <div className="relative flex justify-between items-center max-w-sm mx-auto">
+                       <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 -translate-y-1/2 z-0 rounded-full"></div>
+                       <div className="absolute top-1/2 left-0 h-1 bg-[var(--u-blue)] -translate-y-1/2 z-0 transition-all duration-500 rounded-full" 
+                            style={{ width: completingStep === 3 ? '66%' : '100%' }}></div>
+                       
+                       {[
+                         { step: 1, label: 'Details' },
+                         { step: 2, label: 'Paper' },
+                         { step: 3, label: 'Payment' },
+                         { step: 4, label: 'Files' }
+                       ].map(s => (
+                          <div key={s.step} className="relative z-10 flex flex-col items-center bg-white px-2">
+                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all duration-300 ${completingStep === s.step ? 'bg-[var(--u-blue)] text-white border-[var(--u-blue)] shadow-md scale-110' : s.step < completingStep ? 'bg-[var(--u-navy)] text-white border-[var(--u-navy)]' : 'bg-white text-gray-300 border-gray-100'}`}>
+                                {s.step < completingStep ? '✓' : s.step}
+                             </div>
+                             <span className={`absolute top-10 text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${s.step <= completingStep ? 'text-[var(--u-navy)]' : 'text-gray-400'}`}>{s.label}</span>
+                          </div>
+                       ))}
+                    </div>
+                </div>
+
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (completingStep === 3) {
+                        if (!paymentFile && !completingReg.university?.toLowerCase().includes("aup")) {
+                             return window.Swal.fire({ title: 'Payment Required', text: 'Please upload Proof of Payment before proceeding.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
+                        }
+                        setCompletingStep(4);
+                    } else {
+                        handleCompletePresenterRegistration(e);
+                    }
+                }} className="p-8 space-y-5">
                     
-                    {!completingReg.university?.toLowerCase().includes("aup") && (
-                        <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
-                            <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2"><span>💳</span> Step 3: Payment Details</p>
-                            <div className="text-xs text-gray-600 space-y-1.5 mb-3">
-                                <p><span className="font-bold text-gray-800">Bank Name:</span> BPI</p>
-                                <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
-                                <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
+                    {/* --- PRESENTER STEP 3 PAGE --- */}
+                    {completingStep === 3 && (
+                        <div className="animate-fade-in-up space-y-4">
+                            {!completingReg.university?.toLowerCase().includes("aup") ? (
+                                <>
+                                    <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
+                                        <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2"><span>💳</span> Bank Information</p>
+                                        <div className="text-xs text-gray-600 space-y-1.5 mb-3">
+                                            <p><span className="font-bold text-gray-800">Bank Name:</span> BPI</p>
+                                            <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
+                                            <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
+                                        <input type="file" accept="image/*,application/pdf" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 cursor-pointer" onChange={(e) => setPaymentFile(e.target.files[0])} required />
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center mb-4">
+                                  <div className="text-3xl mb-2">🎓</div>
+                                  <p className="text-sm text-blue-800 font-bold">AUP Faculty Account</p>
+                                  <p className="text-xs text-blue-600 mt-2 leading-relaxed">Your registration fee is waived. You may proceed directly to uploading your presentation files.</p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => {setCompletingReg(null); setCompletingStep(3);}} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
+                                <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step (Files)</button>
                             </div>
-                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
-                            <input type="file" accept="image/*,application/pdf" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 cursor-pointer" onChange={(e) => setPaymentFile(e.target.files[0])} required />
                         </div>
                     )}
 
-                    <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
-                        <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-3 flex items-center gap-2"><span>📁</span> Step 4: Presentation Files</p>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck (.pdf, .ppt) *</label>
-                                <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer" onChange={(e) => setPresentationFile(e.target.files[0])} required />
+                    {/* --- PRESENTER STEP 4 PAGE --- */}
+                    {completingStep === 4 && (
+                        <div className="animate-fade-in-up space-y-4">
+                            <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
+                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-3 flex items-center gap-2"><span>📁</span> Upload Presentation</p>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck (.pdf, .ppt) *</label>
+                                        <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer" onChange={(e) => setPresentationFile(e.target.files[0])} required />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4) *</label>
+                                        <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer" onChange={(e) => setVideoFile(e.target.files[0])} required />
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4) *</label>
-                                <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer" onChange={(e) => setVideoFile(e.target.files[0])} required />
+
+                            <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                                <button type="button" onClick={() => setCompletingStep(3)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
+                                <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Uploading...' : 'Submit Final Files'}</button>
                             </div>
                         </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
-                        <button type="button" onClick={() => setCompletingReg(null)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
-                        <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Uploading...' : 'Submit Final Files'}</button>
-                    </div>
+                    )}
                 </form>
               </div>
             </div>
