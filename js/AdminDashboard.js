@@ -496,6 +496,7 @@
     
     const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
     const isAUP = String(reg.university || '').toLowerCase().includes('aup');
+    const isOnline = String(reg.mode || '').toLowerCase() !== 'on-site';
 
     // Updated Flags: Step 1 is done if it's 'Step 1 Approved' OR fully 'Approved'
     const step1Done = reg.status === 'Step 1 Approved' || reg.status === 'Approved';
@@ -619,7 +620,11 @@
                         </div>
                         <div className="flex gap-4">
                             {presentationUrl && <a href={presentationUrl} target="_blank" className="text-[11px] text-brand underline font-bold">View PPT/PDF</a>}
-                            {isOnline && videoUrl && <a href={videoUrl} target="_blank" className="text-[11px] text-brand underline font-bold">View Video</a>}
+                            {isOnline && videoUrl ? (
+    <a href={videoUrl} target="_blank" className="text-[11px] text-brand underline font-bold">
+        View Video
+    </a>
+) : null}
                         </div>
                     </div>
                 )}
