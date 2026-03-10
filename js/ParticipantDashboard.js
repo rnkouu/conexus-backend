@@ -244,8 +244,8 @@
 
     const [filterType, setFilterType] = useState("all");
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [completingReg, setCompletingReg] = useState(null); // Used for Presenter Step 3 & 4 Modal
-    const [completingStep, setCompletingStep] = useState(3);  // Tracks which step (3 or 4) they are on inside the completing modal
+    const [completingReg, setCompletingReg] = useState(null); 
+    const [completingStep, setCompletingStep] = useState(3);  
     
     const [localRooms, setLocalRooms] = useState([]);
     const [localDorms, setLocalDorms] = useState([]);
@@ -305,19 +305,20 @@
         const liveMatch = liveRegs.find(live => String(live.id) === String(baseReg.id));
         return {
             ...baseReg,
+            university: liveMatch?.university || baseReg.university || "",
             regRole: liveMatch?.reg_role || baseReg.reg_role || baseReg.regRole || 'participant',
             room_id: liveMatch?.room_id || liveMatch?.roomId || baseReg.roomId || baseReg.room_id || null,
             adminNote: liveMatch?.admin_note || baseReg.adminNote || null,
             status: liveMatch?.status || baseReg.status,
+            // Track payment specific approval here. If backend doesn't have it explicitly, fallback to pending if file exists.
+            paymentStatus: liveMatch?.payment_status || liveMatch?.paymentStatus || baseReg.payment_status || baseReg.paymentStatus || 'Pending',
             proofOfPaymentPath: liveMatch?.proof_of_payment || baseReg.proofOfPaymentPath || null,
             presentationPath: liveMatch?.presentation_file || baseReg.presentation_file || null,
             certificate_issued_at: liveMatch?.certificate_issued_at || baseReg.certificate_issued_at || baseReg.certificateIssuedAt || null
         };
     });
 
-    // PRESENTER: STEP 2 (Approved Events ONLY can be selected in Submit Paper)
     const approvedEventsForPaper = myEvents.filter(e => e.status === 'Approved' && String(e.regRole).toLowerCase() === 'presenter');
-
     const mySubmissions = submissions.filter((s) => String(s.userEmail || "").toLowerCase() === String(user?.email || "").toLowerCase());
     const visibleSubmissions = statusFilter === "all" ? mySubmissions : mySubmissions.filter((s) => (s.status || "under_review") === statusFilter);
 
@@ -369,7 +370,6 @@
           payload.append('event_id', selectedEvent.id);
           payload.append('valid_id', selectedFile);
           
-          // Only Participants upload payment at Step 2 here. Presenters do it at Step 3/4 later.
           if (regRole === 'participant' && paymentFile) {
               payload.append('proof_of_payment', paymentFile); 
           }
@@ -386,7 +386,7 @@
 
           const token = localStorage.getItem('conexus_token'); 
 
-          const response = await fetch('https://conexus-backend-production.up.railway.app/api/register', {
+          const response = await fetch(`${API_BASE}/register`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${token}` },
               body: payload, 
@@ -415,27 +415,37 @@
       }
     };
 
-    // --- PRESENTER STEPS 3 & 4 LOGIC ---
-    const handleCompletePresenterRegistration = async (e) => {
+    // --- PRESENTER STEPS 3 & 4 LOGIC (SPLIT & GATED) ---
+    const handleCompletePresenterRegistration = async (e, step) => {
         e.preventDefault();
         setSaving(true);
         try {
             const payload = new FormData();
             payload.append('registration_id', completingReg.id);
-            if (paymentFile) payload.append('proof_of_payment', paymentFile);
-            if (presentationFile) payload.append('presentation_file', presentationFile);
-            if (videoFile) payload.append('video_file', videoFile);
+            payload.append('step', step); // Optionally tell the backend which step
+
+            if (step === 3 && paymentFile) {
+                payload.append('proof_of_payment', paymentFile);
+            } else if (step === 4) {
+                if (presentationFile) payload.append('presentation_file', presentationFile);
+                if (videoFile) payload.append('video_file', videoFile);
+            }
 
             const token = localStorage.getItem('conexus_token');
-            const response = await fetch(`${API_BASE}/register/complete`, { // Adjust to your actual update endpoint
+            const response = await fetch(`${API_BASE}/register/complete`, { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: payload
             });
 
-            window.Swal.fire({ title: 'Files Uploaded!', text: 'Your Payment and Presentation files have been submitted for final review.', icon: 'success', confirmButtonColor: '#1e5aa8' });
+            window.Swal.fire({ 
+                title: 'Files Uploaded!', 
+                text: step === 3 ? 'Your Payment has been submitted for Admin approval.' : 'Your Final Files have been submitted successfully.', 
+                icon: 'success', 
+                confirmButtonColor: '#1e5aa8' 
+            });
+            
             setCompletingReg(null);
-            setCompletingStep(3); // Reset
             setPaymentFile(null);
             setPresentationFile(null);
             setVideoFile(null);
@@ -521,7 +531,6 @@
         printWindow.document.close();
     };
 
-    // --- MAIN MODAL STEPPER ---
     const stepperSteps = regRole === 'participant' 
         ? [ { step: 1, label: 'Details' }, { step: 2, label: 'Payment' } ]
         : [ { step: 1, label: 'Details' }, { step: 2, label: 'Paper' }, { step: 3, label: 'Payment' }, { step: 4, label: 'Files' } ];
@@ -642,7 +651,11 @@
                   
                   const paperForThisEvent = submissions.find(s => String(s.eventId) === String(reg.eventId || reg.event_id) && String(s.userEmail).toLowerCase() === String(user?.email).toLowerCase());
                   const isPaperAccepted = paperForThisEvent?.status === 'accepted';
-                  const hasCompletedFiles = !!(reg.proofOfPaymentPath || reg.presentationPath);
+                  
+                  const isAUP = String(reg.university || '').toLowerCase().includes("aup");
+                  const hasPayment = !!(reg.proofOfPaymentPath);
+                  const isPaymentApproved = reg.paymentStatus === 'Approved';
+                  const hasPresentation = !!(reg.presentationPath);
 
                   return (
                     <div key={`reg-${reg.id}-${idx}`} className="reg-card rounded-[2.5rem] p-7 shadow-sm">
@@ -691,28 +704,45 @@
 
                         {isPresenter && (
                             <>
+                                {/* Step 1 Pending Check */}
                                 {status === 'Pending' && (
                                     <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">⏳ Step 1 Pending</span>
                                 )}
 
+                                {/* Step 2 Unlocked (Submit Paper) */}
                                 {isApproved && !paperForThisEvent && (
                                     <button onClick={() => { setTab("submit"); setPaperForm(p => ({ ...p, eventId: String(reg.eventId || reg.event_id) })); }} className="flex-1 py-3 rounded-xl border border-brand text-brand text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-colors">
                                         Step 2: Submit Paper
                                     </button>
                                 )}
 
+                                {/* Step 2 Pending Check (Paper Submitted but Not Accepted) */}
                                 {paperForThisEvent && !isPaperAccepted && (
                                     <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">📄 Paper Under Review</span>
                                 )}
 
-                                {isPaperAccepted && !hasCompletedFiles && (
-                                    <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors mt-1">
-                                        Step 3 & 4: Upload Final Files
+                                {/* Step 3 Unlocked (Upload Payment) - Skips if AUP */}
+                                {isPaperAccepted && !hasPayment && !isAUP && (
+                                    <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-colors mt-1">
+                                        Step 3: Upload Payment
+                                    </button>
+                                )}
+
+                                {/* Step 3 Pending Check (Payment Uploaded but Not Approved) */}
+                                {isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP && (
+                                    <span className="flex-1 min-w-[100%] py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100 mt-1">⏳ Step 3 Pending Approval</span>
+                                )}
+
+                                {/* Step 4 Unlocked (Upload Files) - Requires Payment Approved OR AUP */}
+                                {isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation && (
+                                    <button onClick={() => { setCompletingReg(reg); setCompletingStep(4); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors mt-1">
+                                        Step 4: Upload Final Files
                                     </button>
                                 )}
                                 
-                                {isPaperAccepted && hasCompletedFiles && (
-                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 rounded-xl border border-emerald-100">✅ Registration Complete</span>
+                                {/* Registration Fully Complete */}
+                                {hasPresentation && (
+                                    <span className="flex-1 min-w-[100%] py-3 text-center text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 rounded-xl border border-emerald-100 mt-1">✅ Registration Complete</span>
                                 )}
                             </>
                         )}
@@ -1009,7 +1039,7 @@
           </div>
         )}
 
-        {/* --- PRESENTER STEP 3 & 4 MODAL (NOW SPLIT INTO SEPARATE PAGES) --- */}
+        {/* --- PRESENTER STEP 3 & 4 GATED MODALS --- */}
         {completingReg && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => {setCompletingReg(null); setCompletingStep(3);}}>
             <div className="w-full max-w-lg animate-fade-in-up my-auto" onClick={e => e.stopPropagation()}>
@@ -1043,47 +1073,27 @@
                     </div>
                 </div>
 
-                <form onSubmit={(e) => {
-                    e.preventDefault();
-                    if (completingStep === 3) {
-                        if (!paymentFile && !completingReg.university?.toLowerCase().includes("aup")) {
-                             return window.Swal.fire({ title: 'Payment Required', text: 'Please upload Proof of Payment before proceeding.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
-                        }
-                        setCompletingStep(4);
-                    } else {
-                        handleCompletePresenterRegistration(e);
-                    }
-                }} className="p-8 space-y-5">
+                <form onSubmit={(e) => handleCompletePresenterRegistration(e, completingStep)} className="p-8 space-y-5">
                     
                     {/* --- PRESENTER STEP 3 PAGE --- */}
                     {completingStep === 3 && (
                         <div className="animate-fade-in-up space-y-4">
-                            {!completingReg.university?.toLowerCase().includes("aup") ? (
-                                <>
-                                    <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
-                                        <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2"><span>💳</span> Bank Information</p>
-                                        <div className="text-xs text-gray-600 space-y-1.5 mb-3">
-                                            <p><span className="font-bold text-gray-800">Bank Name:</span> BPI</p>
-                                            <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
-                                            <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
-                                        <input type="file" accept="image/*,application/pdf" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 cursor-pointer" onChange={(e) => setPaymentFile(e.target.files[0])} required />
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center mb-4">
-                                  <div className="text-3xl mb-2">🎓</div>
-                                  <p className="text-sm text-blue-800 font-bold">AUP Faculty Account</p>
-                                  <p className="text-xs text-blue-600 mt-2 leading-relaxed">Your registration fee is waived. You may proceed directly to uploading your presentation files.</p>
+                            <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
+                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2"><span>💳</span> Bank Information</p>
+                                <div className="text-xs text-gray-600 space-y-1.5 mb-3">
+                                    <p><span className="font-bold text-gray-800">Bank Name:</span> BPI</p>
+                                    <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
+                                    <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
                                 </div>
-                            )}
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
+                                <input type="file" accept="image/*,application/pdf" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 cursor-pointer" onChange={(e) => setPaymentFile(e.target.files[0])} required />
+                            </div>
 
                             <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => {setCompletingReg(null); setCompletingStep(3);}} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
-                                <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step (Files)</button>
+                                <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Uploading...' : 'Submit Step 3 (Payment)'}</button>
                             </div>
                         </div>
                     )}
@@ -1106,7 +1116,7 @@
                             </div>
 
                             <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
-                                <button type="button" onClick={() => setCompletingStep(3)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
+                                <button type="button" onClick={() => {setCompletingReg(null); setCompletingStep(3);}} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
                                 <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Uploading...' : 'Submit Final Files'}</button>
                             </div>
                         </div>
