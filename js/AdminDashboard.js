@@ -549,17 +549,28 @@
 
             <div className="p-8 space-y-8 max-h-[50vh] overflow-y-auto">
                 {/* STEP 1 SECTION */}
-                <div className={`space-y-3 ${currentStep !== 1 ? 'opacity-50' : ''}`}>
-                    <div className="flex justify-between items-center border-b pb-2">
-                        <h4 className="text-[10px] font-black uppercase text-brand">Step 1: Identity Verification</h4>
-                        {currentStep === 1 && <button onClick={() => onApproveStep(reg.id, 1)} className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold">Approve Step 1</button>}
-                        {currentStep > 1 && <span className="text-emerald-500 text-[10px] font-bold">✅ VERIFIED</span>}
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                        <p><b>Institution:</b> {reg.university}</p>
-                        <p><b>ID:</b> {fileUrl ? <a href={fileUrl} target="_blank" className="text-brand underline font-bold">View Image</a> : "No Upload"}</p>
-                    </div>
-                </div>
+<div className={`space-y-3 ${currentStep !== 1 ? 'opacity-50' : ''}`}>
+    <div className="flex justify-between items-center border-b pb-2">
+        <h4 className="text-[10px] font-black uppercase text-brand">Step 1: Identity Verification</h4>
+        {currentStep === 1 && (
+            <button 
+                onClick={() => onApproveStep(reg.id, 1)} 
+                className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold"
+            >
+                Approve Step 1
+            </button>
+        )}
+    </div>
+    <div className="grid grid-cols-2 gap-4 text-xs">
+        <p><b>Name:</b> {reg.firstName} {reg.middleName} {reg.lastName}</p>
+        <p><b>Age/Gender:</b> {reg.age} / {reg.gender}</p>
+        <p><b>Contact:</b> {reg.contactNumber}</p>
+        <p><b>Institution:</b> {reg.university}</p>
+        <p><b>ID:</b> {fileUrl ? (
+            <a href={fileUrl} target="_blank" className="text-brand underline font-bold">View ID Image</a>
+        ) : "No Upload"}</p>
+    </div>
+</div>
 
                 {/* STEP 2 SECTION (PRESENTER ONLY) */}
                 {isPresenter && (
