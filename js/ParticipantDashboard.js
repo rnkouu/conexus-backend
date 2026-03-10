@@ -123,22 +123,6 @@
             </div>
 
             <div className="p-8 space-y-6">
-               
-               {/* --- NEW VISUAL STATUS TRACKER --- */}
-               <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-2">
-                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 text-center">Registration Progress</p>
-                 <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 rounded-full bg-emerald-500 shadow-sm"></div>
-                    <div className="flex-1 h-2 rounded-full bg-emerald-500 shadow-sm"></div>
-                    <div className={`flex-1 h-2 rounded-full shadow-sm transition-all duration-500 ${reg.status === 'Approved' ? 'bg-emerald-500' : reg.status === 'Rejected' ? 'bg-red-500' : 'bg-amber-400 animate-pulse'}`}></div>
-                 </div>
-                 <div className="flex justify-between mt-3 text-[9px] font-black uppercase tracking-widest text-gray-500">
-                    <span>1. Details</span>
-                    <span className="text-center">2. Payment</span>
-                    <span className={`text-right ${reg.status === 'Approved' ? 'text-emerald-600' : reg.status === 'Rejected' ? 'text-red-600' : 'text-amber-600'}`}>3. Admin Verify</span>
-                 </div>
-               </div>
-
                <div className="flex items-start justify-between gap-4">
                  <div>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Event</p>
@@ -260,6 +244,7 @@
 
     const [filterType, setFilterType] = useState("all");
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [completingReg, setCompletingReg] = useState(null); // Used for Presenter Step 3 & 4
     
     const [localRooms, setLocalRooms] = useState([]);
     const [localDorms, setLocalDorms] = useState([]);
@@ -319,12 +304,18 @@
         const liveMatch = liveRegs.find(live => String(live.id) === String(baseReg.id));
         return {
             ...baseReg,
+            regRole: liveMatch?.reg_role || baseReg.reg_role || baseReg.regRole || 'participant',
             room_id: liveMatch?.room_id || liveMatch?.roomId || baseReg.roomId || baseReg.room_id || null,
             adminNote: liveMatch?.admin_note || baseReg.adminNote || null,
             status: liveMatch?.status || baseReg.status,
+            proofOfPaymentPath: liveMatch?.proof_of_payment || baseReg.proofOfPaymentPath || null,
+            presentationPath: liveMatch?.presentation_file || baseReg.presentation_file || null,
             certificate_issued_at: liveMatch?.certificate_issued_at || baseReg.certificate_issued_at || baseReg.certificateIssuedAt || null
         };
     });
+
+    // PRESENTER: STEP 2 (Approved Events ONLY can be selected in Submit Paper)
+    const approvedEventsForPaper = myEvents.filter(e => e.status === 'Approved' && String(e.regRole).toLowerCase() === 'presenter');
 
     const mySubmissions = submissions.filter((s) => String(s.userEmail || "").toLowerCase() === String(user?.email || "").toLowerCase());
     const visibleSubmissions = statusFilter === "all" ? mySubmissions : mySubmissions.filter((s) => (s.status || "under_review") === statusFilter);
@@ -336,8 +327,6 @@
       }
       return list;
     };
-
-    const hasAcceptedPaperForSelected = selectedEvent ? submissions.some(s => String(s.eventId) === String(selectedEvent.id) && s.status === 'accepted') : false;
 
     const openRegisterModal = (event) => {
       setSelectedEvent(event);
@@ -368,17 +357,7 @@
     // --- STEP LOGIC ---
     const handleStep1Submit = () => {
         if (!selectedFile) return window.Swal.fire('ID Required', 'Please upload your ID first.', 'warning');
-        if (regRole === 'presenter' && (!presentationFile || !videoFile)) {
-            return window.Swal.fire({ title: 'Missing Files', text: 'Presenters must upload both a presentation file and a sample video.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
-        }
         setCurrentRegStep(2);
-    };
-
-    const handleStep2Submit = () => {
-        if (!paymentFile && !isAUP) {
-            return window.Swal.fire({ title: 'Payment Required', text: 'Please upload Proof of Payment.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
-        }
-        setCurrentRegStep(3);
     };
 
     const handleFinalRegistration = async () => {
@@ -388,13 +367,14 @@
           payload.append('user_email', formData.email);
           payload.append('event_id', selectedEvent.id);
           payload.append('valid_id', selectedFile);
-          if (paymentFile) payload.append('proof_of_payment', paymentFile); 
-          payload.append('companions', JSON.stringify(companions)); 
           
+          // Only Participants upload payment at Step 2 here. Presenters do it at Step 3/4 later.
+          if (regRole === 'participant' && paymentFile) {
+              payload.append('proof_of_payment', paymentFile); 
+          }
+          
+          payload.append('companions', JSON.stringify(companions)); 
           payload.append('reg_role', regRole);
-          if (presentationFile) payload.append('presentation_file', presentationFile);
-          if (videoFile) payload.append('video_file', videoFile);
-
           payload.append('first_name', formData.firstName);
           payload.append('last_name', formData.lastName);
           payload.append('middle_name', formData.middleName);
@@ -413,8 +393,13 @@
           
           const data = await response.json();
           
-          if (data.success) {
-              window.Swal.fire({ title: 'Registration Submitted!', text: 'Your credentials have been sent to the Admin for verification.', icon: 'success', confirmButtonColor: '#1e5aa8' });
+          if (data.success || response.ok) {
+              window.Swal.fire({ 
+                  title: regRole === 'presenter' ? 'Step 1 Submitted!' : 'Registration Submitted!', 
+                  text: regRole === 'presenter' ? 'Your details have been sent to the Admin. Please wait for approval before submitting your paper.' : 'Your credentials and payment have been sent to the Admin for verification.', 
+                  icon: 'success', 
+                  confirmButtonColor: '#1e5aa8' 
+              });
               setSelectedEvent(null); 
               setTab("my");
               if(onRegister) onRegister(); 
@@ -428,6 +413,37 @@
           setSaving(false);
       }
     };
+
+    // --- PRESENTER STEPS 3 & 4 LOGIC ---
+    const handleCompletePresenterRegistration = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const payload = new FormData();
+            payload.append('registration_id', completingReg.id);
+            if (paymentFile) payload.append('proof_of_payment', paymentFile);
+            if (presentationFile) payload.append('presentation_file', presentationFile);
+            if (videoFile) payload.append('video_file', videoFile);
+
+            const token = localStorage.getItem('conexus_token');
+            const response = await fetch(`${API_BASE}/register/complete`, { // Adjust to your actual update endpoint
+                method: 'POST', 
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: payload
+            });
+
+            window.Swal.fire({ title: 'Files Uploaded!', text: 'Your Payment and Presentation files have been submitted for final review.', icon: 'success', confirmButtonColor: '#1e5aa8' });
+            setCompletingReg(null);
+            setPaymentFile(null);
+            setPresentationFile(null);
+            setVideoFile(null);
+        } catch (error) {
+            console.error(error);
+            window.Swal.fire({ title: 'Error', text: 'Failed to upload files.', icon: 'error', confirmButtonColor: '#1e5aa8' });
+        } finally {
+            setSaving(false);
+        }
+    }
 
     const handlePaperSubmit = async (e) => {
       e.preventDefault();
@@ -502,6 +518,10 @@
         `);
         printWindow.document.close();
     };
+
+    const stepperSteps = regRole === 'participant' 
+        ? [ { step: 1, label: 'Details' }, { step: 2, label: 'Payment' } ]
+        : [ { step: 1, label: 'Submit Details' } ];
 
     return (
       <section className="relative px-4 py-10 max-w-7xl mx-auto animate-fade-in-up">
@@ -615,6 +635,12 @@
                 myEvents.map((reg, idx) => {
                   const status = reg.status || "Pending";
                   const isApproved = status === "Approved";
+                  const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
+                  
+                  const paperForThisEvent = submissions.find(s => String(s.eventId) === String(reg.eventId || reg.event_id) && String(s.userEmail).toLowerCase() === String(user?.email).toLowerCase());
+                  const isPaperAccepted = paperForThisEvent?.status === 'accepted';
+                  const hasCompletedFiles = !!(reg.proofOfPaymentPath || reg.presentationPath);
+
                   return (
                     <div key={`reg-${reg.id}-${idx}`} className="reg-card rounded-[2.5rem] p-7 shadow-sm">
                       <div className="flex justify-between items-start mb-6">
@@ -637,11 +663,9 @@
                           <p className="flex items-center gap-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
                             <span className="opacity-50 text-base">📅</span> {formatDateRange(reg.startDate, reg.endDate)}
                           </p>
-                          {reg.companions?.length > 0 && (
-                            <p className="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-[10px] font-black text-blue-600 uppercase">
-                              +{reg.companions.length} Attendees
-                            </p>
-                          )}
+                          <p className="inline-flex items-center px-2 py-1 rounded bg-indigo-50 text-[10px] font-black text-indigo-600 uppercase">
+                            Role: {reg.regRole}
+                          </p>
                         </div>
                       </div>
 
@@ -653,25 +677,41 @@
                           Details
                         </button>
                         
-                        {isApproved && (
-                          <button 
-                            onClick={() => {
-                                setPaperForm(p => ({ ...p, eventId: String(reg.eventId) }));
-                                setTab("submit");
-                            }}
-                            className="flex-1 py-3 rounded-xl border border-brand text-brand text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-colors"
-                          >
-                            Paper
-                          </button>
-                        )}
-
-                        {isApproved && (
+                        {isApproved && reg.regRole === 'participant' && (
                           <button 
                             onClick={() => onDownloadInvitation?.(reg)}
                             className="flex-1 py-3 rounded-xl bg-[var(--u-navy)] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:opacity-90 transition-opacity"
                           >
                             Invitation
                           </button>
+                        )}
+
+                        {isPresenter && (
+                            <>
+                                {status === 'Pending' && (
+                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">⏳ Step 1 Pending</span>
+                                )}
+
+                                {isApproved && !paperForThisEvent && (
+                                    <button onClick={() => { setTab("submit"); setPaperForm(p => ({ ...p, eventId: String(reg.eventId || reg.event_id) })); }} className="flex-1 py-3 rounded-xl border border-brand text-brand text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-colors">
+                                        Step 2: Submit Paper
+                                    </button>
+                                )}
+
+                                {paperForThisEvent && !isPaperAccepted && (
+                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">📄 Paper Under Review</span>
+                                )}
+
+                                {isPaperAccepted && !hasCompletedFiles && (
+                                    <button onClick={() => setCompletingReg(reg)} className="flex-1 min-w-[100%] py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors mt-1">
+                                        Step 3 & 4: Upload Final Files
+                                    </button>
+                                )}
+                                
+                                {isPaperAccepted && hasCompletedFiles && (
+                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 rounded-xl border border-emerald-100">✅ Registration Complete</span>
+                                )}
+                            </>
                         )}
 
                         {isApproved && reg.certificate_issued_at && (
@@ -709,12 +749,12 @@
                   
                   <form onSubmit={handlePaperSubmit} className="space-y-4">
                      <div>
-                        {/* --- CHICKEN AND EGG FIX APPLIED HERE --- */}
-                        <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Link to Event</label>
-                        <select className="u-input-academic" value={paperForm.eventId} onChange={e => setPaperForm(p => ({...p, eventId: e.target.value}))}>
-                           <option value="">-- Select Upcoming Event --</option>
-                           {upcomingEvents.map(e => (
-                               <option key={e.id} value={e.id}>{e.title}</option>
+                        {/* THE DROPDOWN NOW PROPERLY SHOWS APPROVED PRESENTER REGISTRATIONS ONLY */}
+                        <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Link to Event (Step 2)</label>
+                        <select className="u-input-academic" value={paperForm.eventId} onChange={e => setPaperForm(p => ({...p, eventId: e.target.value}))} required>
+                           <option value="">-- Select Approved Event --</option>
+                           {approvedEventsForPaper.map(e => (
+                               <option key={e.id} value={e.eventId || e.event_id || e.id}>{e.eventTitle}</option>
                            ))}
                         </select>
                      </div>
@@ -828,17 +868,14 @@
                     <p className="text-xs text-white/75 mt-1">Enrolling in: <strong className="text-[var(--u-gold)]">{selectedEvent.title}</strong></p>
                  </div>
 
-                 {/* --- NEW: VISUAL STEPPER TRACKER --- */}
+                 {/* --- DYNAMIC VISUAL STEPPER TRACKER --- */}
                  <div className="px-10 pt-8 pb-4">
                     <div className="relative flex justify-between items-center max-w-xs mx-auto">
                        <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 -translate-y-1/2 z-0 rounded-full"></div>
-                       <div className="absolute top-1/2 left-0 h-1 bg-[var(--u-blue)] -translate-y-1/2 z-0 transition-all duration-500 rounded-full" style={{ width: currentRegStep === 1 ? '0%' : currentRegStep === 2 ? '50%' : '100%' }}></div>
+                       <div className="absolute top-1/2 left-0 h-1 bg-[var(--u-blue)] -translate-y-1/2 z-0 transition-all duration-500 rounded-full" 
+                            style={{ width: stepperSteps.length > 1 ? `${(currentRegStep - 1) / (stepperSteps.length - 1) * 100}%` : '100%' }}></div>
                        
-                       {[
-                         { step: 1, label: 'Details' },
-                         { step: 2, label: 'Payment' },
-                         { step: 3, label: 'Review' }
-                       ].map(s => (
+                       {stepperSteps.map(s => (
                           <div key={s.step} className="relative z-10 flex flex-col items-center bg-white px-2">
                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all duration-300 ${currentRegStep === s.step ? 'bg-[var(--u-blue)] text-white border-[var(--u-blue)] shadow-md scale-110' : currentRegStep > s.step ? 'bg-[var(--u-navy)] text-white border-[var(--u-navy)]' : 'bg-white text-gray-300 border-gray-100'}`}>
                                 {currentRegStep > s.step ? '✓' : s.step}
@@ -850,12 +887,7 @@
                  </div>
                  <div className="mt-4"></div>
 
-                 <form onSubmit={(e) => { 
-                     e.preventDefault(); 
-                     if (currentRegStep === 1) handleStep1Submit();
-                     else if (currentRegStep === 2) handleStep2Submit();
-                     else handleFinalRegistration();
-                 }} className="px-8 pb-8 pt-2 space-y-4">
+                 <form className="px-8 pb-8 pt-2 space-y-4">
                     
                     {/* --- STEP 1: Personal Details --- */}
                     {currentRegStep === 1 && (
@@ -863,19 +895,15 @@
                         <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
                           <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
                           
-                          {hasAcceptedPaperForSelected ? (
-                              <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
-                          ) : (
-                              <div className="flex-1 relative group h-full">
-                                  <button type="button" disabled className="w-full h-full py-2 text-xs font-bold rounded-lg transition-all text-gray-400 bg-gray-200 cursor-not-allowed border border-gray-300">
-                                      Presenter 🔒
-                                  </button>
-                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-gray-900 text-white text-[10px] text-center rounded-lg p-3 shadow-xl z-50 leading-relaxed">
-                                      You must submit a Full Paper and receive a Notice of Acceptance from the Admin before you can register and pay as a Presenter.
-                                  </div>
-                              </div>
-                          )}
+                          {/* Presenter is now freely selectable to start Step 1 */}
+                          <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
                         </div>
+
+                        {regRole === 'presenter' && (
+                            <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg mb-2">
+                                <p className="text-xs text-blue-800 leading-relaxed font-bold">Presenter Flow: Submit Step 1 details below. Once Admin approves, you will be able to submit your paper in Step 2.</p>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                           <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} required /></div>
@@ -898,22 +926,6 @@
                               <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID *</label>
                               <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer text-xs" onChange={(e) => setSelectedFile(e.target.files[0])} required />
                           </div>
-
-                          {regRole === 'presenter' && (
-                            <>
-                              <div className="col-span-2 border-t border-gray-100 pt-4 mt-2">
-                                <p className="text-xs font-black text-brand uppercase mb-3">Presenter Requirements</p>
-                              </div>
-                              <div className="col-span-2 sm:col-span-1">
-                                  <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck</label>
-                                  <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer text-xs" onChange={(e) => setPresentationFile(e.target.files[0])} required={regRole === 'presenter'} />
-                              </div>
-                              <div className="col-span-2 sm:col-span-1">
-                                  <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4)</label>
-                                  <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer text-xs" onChange={(e) => setVideoFile(e.target.files[0])} required={regRole === 'presenter'} />
-                              </div>
-                            </>
-                          )}
                         </div>
 
                         <div className="flex items-center justify-between pt-6 border-t border-gray-100">
@@ -927,7 +939,12 @@
                           </div>
                           <div className="flex gap-2">
                               <button type="button" onClick={() => setSelectedEvent(null)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
-                              <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step</button>
+                              
+                              {regRole === 'participant' ? (
+                                  <button type="button" onClick={handleStep1Submit} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step (Payment)</button>
+                              ) : (
+                                  <button type="button" onClick={handleFinalRegistration} disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Processing...' : 'Submit Step 1'}</button>
+                              )}
                           </div>
                         </div>
 
@@ -950,8 +967,8 @@
                       </div>
                     )}
 
-                    {/* --- STEP 2: Payment Details --- */}
-                    {currentRegStep === 2 && (
+                    {/* --- STEP 2: Payment Details (Participant ONLY) --- */}
+                    {currentRegStep === 2 && regRole === 'participant' && (
                       <div className="animate-fade-in-up space-y-4">
                         {isAUP ? (
                           <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center mb-4">
@@ -979,40 +996,61 @@
                         
                         <div className="flex items-center justify-end pt-6 border-t border-gray-100 gap-2">
                             <button type="button" onClick={() => setCurrentRegStep(1)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
-                            <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step</button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* --- STEP 3: Final Review & Submit --- */}
-                    {currentRegStep === 3 && (
-                      <div className="animate-fade-in-up space-y-4">
-                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                           <h4 className="text-xs font-black text-brand uppercase tracking-widest mb-4">Review Your Submission</h4>
-                           <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs">
-                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Name</p><p className="font-bold text-gray-800 mt-1">{formData.firstName} {formData.lastName}</p></div>
-                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Role</p><p className="font-bold text-gray-800 mt-1 capitalize">{regRole}</p></div>
-                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Valid ID</p><p className="font-bold text-emerald-600 mt-1">{selectedFile ? '✅ Uploaded' : '❌ Missing'}</p></div>
-                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Payment</p><p className="font-bold text-emerald-600 mt-1">{paymentFile || isAUP ? '✅ Verified' : '❌ Missing'}</p></div>
-                           </div>
-                        </div>
-
-                        <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex items-start gap-3">
-                           <span className="text-xl">🛡️</span>
-                           <p className="text-xs text-blue-800 leading-relaxed">
-                              <strong>Admin Verification Required.</strong> By clicking submit, your credentials and payment will be securely sent to the university administration for manual verification. You will be notified once you are approved.
-                           </p>
-                        </div>
-
-                        <div className="flex items-center justify-end pt-6 border-t border-gray-100 gap-2">
-                            <button type="button" onClick={() => setCurrentRegStep(2)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
-                            <button type="submit" disabled={saving} className="grad-btn px-6 py-3 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden disabled:opacity-70">
-                                {saving ? "Processing..." : "Submit for Admin Review"}
-                            </button>
+                            <button type="button" onClick={handleFinalRegistration} disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Processing...' : 'Complete Registration'}</button>
                         </div>
                       </div>
                     )}
                  </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- PRESENTER STEP 3 & 4 MODAL --- */}
+        {completingReg && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setCompletingReg(null)}>
+            <div className="w-full max-w-lg animate-fade-in-up my-auto" onClick={e => e.stopPropagation()}>
+              <div className="rounded-[2.5rem] overflow-hidden u-card bg-white">
+                <div className="px-8 py-6 bg-[var(--u-navy)] text-white relative">
+                   <div className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--u-gold)]" />
+                   <h3 className="text-xl font-extrabold">Complete Presenter Registration</h3>
+                   <p className="text-xs text-white/75 mt-1">Steps 3 & 4: Payment and Presentation Files</p>
+                </div>
+
+                <form onSubmit={handleCompletePresenterRegistration} className="p-8 space-y-5">
+                    
+                    {!completingReg.university?.toLowerCase().includes("aup") && (
+                        <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
+                            <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2"><span>💳</span> Step 3: Payment Details</p>
+                            <div className="text-xs text-gray-600 space-y-1.5 mb-3">
+                                <p><span className="font-bold text-gray-800">Bank Name:</span> BPI</p>
+                                <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
+                                <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
+                            </div>
+                            <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
+                            <input type="file" accept="image/*,application/pdf" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 cursor-pointer" onChange={(e) => setPaymentFile(e.target.files[0])} required />
+                        </div>
+                    )}
+
+                    <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
+                        <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-3 flex items-center gap-2"><span>📁</span> Step 4: Presentation Files</p>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck (.pdf, .ppt) *</label>
+                                <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer" onChange={(e) => setPresentationFile(e.target.files[0])} required />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4) *</label>
+                                <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer" onChange={(e) => setVideoFile(e.target.files[0])} required />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                        <button type="button" onClick={() => setCompletingReg(null)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
+                        <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Uploading...' : 'Submit Final Files'}</button>
+                    </div>
+                </form>
               </div>
             </div>
           </div>
