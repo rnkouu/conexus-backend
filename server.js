@@ -274,7 +274,16 @@ app.post('/api/attendance/scan', (req, res) => {
 // SECURED: Only returns all if admin. If participant, returns only their own.
 app.get('/api/registrations', verifyToken, (req, res) => {
     let sql = `
-        SELECT r.*, u.full_name, u.email as user_email, u.university_org as university, u.profile_slug, e.title as event_title, r.room_id,
+        SELECT 
+            r.id, r.user_id, r.event_id as eventId, r.registration_type, 
+            r.payment_status, r.paper_status, r.files_status, r.accommodation_needed, 
+            r.transportation_needed, r.qr_code_data, r.nfc_tag_id, r.nfc_card_id, 
+            r.status, r.created_at, r.room_id, r.valid_id_path, r.admin_note, 
+            r.certificate_issued_at as certificateIssuedAt, r.reg_role, 
+            r.presentation_path, r.video_path, r.first_name, r.last_name, 
+            r.middle_name, r.gender, r.age, r.contact_number, r.proof_of_payment_path,
+            u.full_name as fullName, u.email as userEmail, u.university_org as university, 
+            u.profile_slug, e.title as eventTitle, e.mode,
         (SELECT JSON_ARRAYAGG(JSON_OBJECT(
             'name', c.name, 
             'relation', c.relation, 
