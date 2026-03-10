@@ -551,6 +551,34 @@ app.put('/api/registrations/:id', verifyToken, verifyAdmin, (req, res) => {
     });
 });
 
+// ... existing code for app.put('/api/registrations/:id', ...)
+
+// ADD THE NEW CODE RIGHT HERE:
+app.put('/api/registrations/:id/steps', verifyToken, verifyAdmin, (req, res) => {
+    const regId = req.params.id;
+    const { status, paper_status, payment_status, files_status } = req.body;
+
+    let sql = "UPDATE registrations SET ";
+    let params = [];
+    let updates = [];
+
+    if (status) { updates.push("status = ?"); params.push(status); }
+    if (paper_status) { updates.push("paper_status = ?"); params.push(paper_status); }
+    if (payment_status) { updates.push("payment_status = ?"); params.push(payment_status); }
+    if (files_status) { updates.push("files_status = ?"); params.push(files_status); }
+
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+
+    sql += updates.join(", ") + " WHERE id = ?";
+    params.push(regId);
+
+    db.query(sql, params, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, message: "Step updated successfully" });
+    });
+});
+
+
 app.put('/api/registrations/:id/assign-nfc', verifyToken, verifyAdmin, (req, res) => {
     const { nfc_card_id } = req.body;
     db.query("SELECT id FROM registrations WHERE nfc_card_id = ? AND id != ?", [nfc_card_id, req.params.id], (err, results) => {

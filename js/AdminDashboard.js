@@ -552,23 +552,30 @@
 <div className={`space-y-3 ${currentStep !== 1 ? 'opacity-50' : ''}`}>
     <div className="flex justify-between items-center border-b pb-2">
         <h4 className="text-[10px] font-black uppercase text-brand">Step 1: Identity Verification</h4>
-        {currentStep === 1 && (
-            <button 
-                onClick={() => onApproveStep(reg.id, 1)} 
-                className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold"
-            >
-                Approve Step 1
-            </button>
-        )}
+        {currentStep === 1 && <button onClick={() => onApproveStep(reg.id, 1)} className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold">Approve Step 1</button>}
     </div>
-    <div className="grid grid-cols-2 gap-4 text-xs">
+    
+    {/* Display the filled out demographics */}
+    <div className="grid grid-cols-2 gap-4 text-xs mb-4">
         <p><b>Name:</b> {reg.firstName} {reg.middleName} {reg.lastName}</p>
         <p><b>Age/Gender:</b> {reg.age} / {reg.gender}</p>
         <p><b>Contact:</b> {reg.contactNumber}</p>
         <p><b>Institution:</b> {reg.university}</p>
-        <p><b>ID:</b> {fileUrl ? (
-            <a href={fileUrl} target="_blank" className="text-brand underline font-bold">View ID Image</a>
-        ) : "No Upload"}</p>
+    </div>
+
+    {/* Integrated ID Preview Image */}
+    <div className="mt-2">
+        <p className="text-[10px] font-bold text-gray-400 mb-1 uppercase">Valid ID Document:</p>
+        {fileUrl ? (
+            <a href={fileUrl} target="_blank" rel="noreferrer" className="block group relative w-40 h-24 overflow-hidden rounded-lg border-2 border-gray-100 hover:border-brand transition-all">
+                <img src={fileUrl} alt="Valid ID" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-[10px] font-bold">Click to Expand</span>
+                </div>
+            </a>
+        ) : (
+            <p className="text-xs italic text-gray-400">No ID uploaded.</p>
+        )}
     </div>
 </div>
 
