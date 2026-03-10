@@ -301,16 +301,20 @@
 
     const upcomingEvents = Array.isArray(events) ? events.filter((e) => !e.past) : [];
     const baseEvents = Array.isArray(registrations) ? registrations : [];
+    
+    // Merge live data and map event mode for conditional video uploads
     const myEvents = baseEvents.map(baseReg => {
         const liveMatch = liveRegs.find(live => String(live.id) === String(baseReg.id));
+        const evt = (events || []).find(e => String(e.id) === String(baseReg.eventId || baseReg.event_id));
         return {
             ...baseReg,
+            eventTitle: evt?.title || baseReg.eventTitle,
+            mode: evt?.mode || baseReg.mode || '',
             university: liveMatch?.university || baseReg.university || "",
             regRole: liveMatch?.reg_role || baseReg.reg_role || baseReg.regRole || 'participant',
             room_id: liveMatch?.room_id || liveMatch?.roomId || baseReg.roomId || baseReg.room_id || null,
             adminNote: liveMatch?.admin_note || baseReg.adminNote || null,
             status: liveMatch?.status || baseReg.status,
-            // Track payment specific approval here. If backend doesn't have it explicitly, fallback to pending if file exists.
             paymentStatus: liveMatch?.payment_status || liveMatch?.paymentStatus || baseReg.payment_status || baseReg.paymentStatus || 'Pending',
             proofOfPaymentPath: liveMatch?.proof_of_payment || baseReg.proofOfPaymentPath || null,
             presentationPath: liveMatch?.presentation_file || baseReg.presentation_file || null,
@@ -397,7 +401,7 @@
           if (data.success || response.ok) {
               window.Swal.fire({ 
                   title: regRole === 'presenter' ? 'Step 1 Submitted!' : 'Registration Submitted!', 
-                  text: regRole === 'presenter' ? 'Your details have been sent to the Admin. Please wait for approval before submitting your paper.' : 'Your credentials and payment have been sent to the Admin for verification.', 
+                  text: regRole === 'presenter' ? 'Your details have been sent to the Admin. Please wait for approval before you can proceed to Step 2.' : 'Your credentials and payment have been sent to the Admin for verification.', 
                   icon: 'success', 
                   confirmButtonColor: '#1e5aa8' 
               });
@@ -422,7 +426,7 @@
         try {
             const payload = new FormData();
             payload.append('registration_id', completingReg.id);
-            payload.append('step', step); // Optionally tell the backend which step
+            payload.append('step', step); 
 
             if (step === 3 && paymentFile) {
                 payload.append('proof_of_payment', paymentFile);
@@ -440,7 +444,7 @@
 
             window.Swal.fire({ 
                 title: 'Files Uploaded!', 
-                text: step === 3 ? 'Your Payment has been submitted for Admin approval.' : 'Your Final Files have been submitted successfully.', 
+                text: step === 3 ? 'Your Payment has been submitted. Please wait for Admin approval to proceed to Step 4.' : 'Your Final Presentation Files have been submitted successfully.', 
                 icon: 'success', 
                 confirmButtonColor: '#1e5aa8' 
             });
@@ -470,10 +474,17 @@
           const result = await onSubmitPaper({ ...paperForm, file: paperFile, user });
           setSubmissions(prev => [normalizeSubmission(result || localRow), ...prev]);
         } else { setSubmissions(prev => [localRow, ...prev]); }
+        
+        window.Swal.fire({ 
+            title: 'Paper Submitted!', 
+            text: 'Your paper is now under review in OJS. Please wait for Admin acceptance to proceed to Step 3.', 
+            icon: 'success', 
+            confirmButtonColor: '#1e5aa8' 
+        });
+
         setPaperForm({ eventId: "", title: "", track: "General Research", abstract: "" });
         setPaperFileName("");
-        setPaperSuccess("Paper submitted successfully!");
-        setTimeout(() => setPaperSuccess(""), 4000);
+        setTab("my"); // Auto redirect back to registrations to see pending status
       } catch (err) { setPaperError("Submission failed."); } finally { setPaperSaving(false); }
     };
 
@@ -680,7 +691,7 @@
                             <span className="opacity-50 text-base">📅</span> {formatDateRange(reg.startDate, reg.endDate)}
                           </p>
                           <p className="inline-flex items-center px-2 py-1 rounded bg-indigo-50 text-[10px] font-black text-indigo-600 uppercase">
-                            Role: {reg.regRole}
+                            Role: {reg.regRole} | {reg.mode}
                           </p>
                         </div>
                       </div>
@@ -704,43 +715,43 @@
 
                         {isPresenter && (
                             <>
-                                {/* Step 1 Pending Check */}
+                                {/* GATE 1: Step 1 Pending Check */}
                                 {status === 'Pending' && (
-                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">⏳ Step 1 Pending</span>
+                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">⏳ Step 1 Pending Admin Approval</span>
                                 )}
 
-                                {/* Step 2 Unlocked (Submit Paper) */}
+                                {/* GATE 2: Step 2 Unlocked (Submit Paper) */}
                                 {isApproved && !paperForThisEvent && (
                                     <button onClick={() => { setTab("submit"); setPaperForm(p => ({ ...p, eventId: String(reg.eventId || reg.event_id) })); }} className="flex-1 py-3 rounded-xl border border-brand text-brand text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-colors">
                                         Step 2: Submit Paper
                                     </button>
                                 )}
 
-                                {/* Step 2 Pending Check (Paper Submitted but Not Accepted) */}
+                                {/* GATE 2 Check: Paper Submitted but Not Accepted */}
                                 {paperForThisEvent && !isPaperAccepted && (
-                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">📄 Paper Under Review</span>
+                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">⏳ Step 2 Pending Paper Acceptance</span>
                                 )}
 
-                                {/* Step 3 Unlocked (Upload Payment) - Skips if AUP */}
+                                {/* GATE 3: Step 3 Unlocked (Upload Payment) - Skips if AUP */}
                                 {isPaperAccepted && !hasPayment && !isAUP && (
                                     <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-colors mt-1">
                                         Step 3: Upload Payment
                                     </button>
                                 )}
 
-                                {/* Step 3 Pending Check (Payment Uploaded but Not Approved) */}
+                                {/* GATE 3 Check: Payment Uploaded but Not Approved */}
                                 {isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP && (
-                                    <span className="flex-1 min-w-[100%] py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100 mt-1">⏳ Step 3 Pending Approval</span>
+                                    <span className="flex-1 min-w-[100%] py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100 mt-1">⏳ Step 3 Pending Payment Approval</span>
                                 )}
 
-                                {/* Step 4 Unlocked (Upload Files) - Requires Payment Approved OR AUP */}
+                                {/* GATE 4: Step 4 Unlocked (Upload Files) - Requires Payment Approved OR AUP */}
                                 {isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation && (
                                     <button onClick={() => { setCompletingReg(reg); setCompletingStep(4); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors mt-1">
                                         Step 4: Upload Final Files
                                     </button>
                                 )}
                                 
-                                {/* Registration Fully Complete */}
+                                {/* FINISHED: Registration Fully Complete */}
                                 {hasPresentation && (
                                     <span className="flex-1 min-w-[100%] py-3 text-center text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 rounded-xl border border-emerald-100 mt-1">✅ Registration Complete</span>
                                 )}
@@ -928,7 +939,6 @@
                         <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
                           <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
                           
-                          {/* Presenter is now freely selectable to start Step 1 */}
                           <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
                         </div>
 
@@ -1102,16 +1112,25 @@
                     {completingStep === 4 && (
                         <div className="animate-fade-in-up space-y-4">
                             <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
-                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-3 flex items-center gap-2"><span>📁</span> Upload Presentation</p>
+                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-3 flex items-center gap-2"><span>📁</span> Upload Presentation Files</p>
                                 <div className="space-y-4">
+                                    
+                                    {/* ALWAYS REQUIRED */}
                                     <div>
                                         <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Presentation Deck (.pdf, .ppt) *</label>
                                         <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer" onChange={(e) => setPresentationFile(e.target.files[0])} required />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Sample Video (.mp4) *</label>
-                                        <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer" onChange={(e) => setVideoFile(e.target.files[0])} required />
-                                    </div>
+
+                                    {/* ONLY REQUIRED IF EVENT MODE IS "ONLINE" */}
+                                    {String(completingReg.mode || '').toLowerCase() === 'online' && (
+                                      <div className="animate-fade-in-up">
+                                          <label className="text-[10px] font-black text-rose-500 uppercase mb-1 block flex items-center gap-1">
+                                              <span>📹</span> Sample Video (.mp4) * <span className="text-gray-400 font-normal normal-case ml-1">(Required for Online Events)</span>
+                                          </label>
+                                          <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer border-rose-200" onChange={(e) => setVideoFile(e.target.files[0])} required />
+                                      </div>
+                                    )}
+
                                 </div>
                             </div>
 
