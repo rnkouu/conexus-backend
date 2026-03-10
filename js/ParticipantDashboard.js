@@ -89,8 +89,8 @@
   function RegistrationDetailsModal({ reg, event, rooms = [], dorms = [], onClose }) {
     if (!reg) return null;
     
-    const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId}` : null;
-    const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath}` : null;
+    const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId.replace(/\\/g, '/').replace(/^\/+/, '')}` : null;
+    const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath.replace(/\\/g, '/').replace(/^\/+/, '')}` : null;
     const companions = Array.isArray(reg.companions) ? reg.companions : [];
 
     let assignedRoomName = "";
@@ -329,7 +329,6 @@
         };
     });
 
-    // --- FIX: Submit Paper Dropdown matches new 'Step 1 Approved' Status ---
     const approvedEventsForPaper = myEvents.filter(e => 
         (e.status === 'Approved' || e.status === 'Step 1 Approved') && 
         String(e.regRole).toLowerCase() === 'presenter'
@@ -456,7 +455,7 @@
 
             window.Swal.fire({ 
                 title: 'Files Uploaded!', 
-                text: step === 3 ? 'Your Payment has been submitted. Please wait for Admin approval to proceed to Step 4.' : 'Your Final Presentation Files have been submitted successfully.', 
+                text: step === 3 ? 'Your Payment has been submitted. Please wait for Admin approval to proceed to Step 4.' : 'Your Final Presentation Files have been submitted successfully. Waiting for final approval.', 
                 icon: 'success', 
                 confirmButtonColor: '#1e5aa8' 
             });
@@ -681,6 +680,118 @@
                   const isPaymentApproved = reg.paymentStatus === 'Approved';
                   const hasPresentation = !!(reg.presentationPath);
 
+                  // --- NEW STRICT PHASE LOGIC FOR PARTICIPANT DASHBOARD ---
+                  let phaseUI = null;
+                  if (isPresenter) {
+                      if (!isStep1Approved && status !== 'Rejected') {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                                  <span className="text-xl">⏳</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-amber-800">Step 1: Pending Admin Approval</p>
+                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> Please wait for the admin to verify your identity and details before proceeding to Step 2 (Submit Paper).</p>
+                                  </div>
+                              </div>
+                          );
+                      } else if (isStep1Approved && !paperForThisEvent) {
+                           phaseUI = (
+                              <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
+                                  <span className="text-xl">📝</span>
+                                  <div className="flex-1">
+                                      <p className="text-xs font-bold text-blue-800">Step 1 Approved! Action Required</p>
+                                      <p className="text-[10px] text-blue-700 mt-1 mb-3 leading-relaxed"><b>Instruction:</b> You are cleared to submit your manuscript. Please upload it for OJS review.</p>
+                                      <button onClick={() => { setTab("submit"); setPaperForm(p => ({ ...p, eventId: String(reg.eventId || reg.event_id) })); }} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">Go to Submit Paper (Step 2)</button>
+                                  </div>
+                              </div>
+                           );
+                      } else if (paperForThisEvent && !isPaperAccepted) {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                                  <span className="text-xl">⏳</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-amber-800">Step 2: Paper Under Review</p>
+                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> Your paper is being reviewed. Please wait for the admin to accept your paper before proceeding to Step 3 (Payment).</p>
+                                  </div>
+                              </div>
+                          );
+                      } else if (isPaperAccepted && !hasPayment && !isAUP) {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
+                                  <span className="text-xl">💳</span>
+                                  <div className="flex-1">
+                                      <p className="text-xs font-bold text-blue-800">Step 2 Accepted! Action Required</p>
+                                      <p className="text-[10px] text-blue-700 mt-1 mb-3 leading-relaxed"><b>Instruction:</b> Your paper has been accepted. Please upload your proof of payment.</p>
+                                      <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">Upload Payment (Step 3)</button>
+                                  </div>
+                              </div>
+                          );
+                      } else if (isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP) {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                                  <span className="text-xl">⏳</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-amber-800">Step 3: Payment Verification Pending</p>
+                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> The admin is verifying your payment receipt. Once approved, you can upload your final presentation files.</p>
+                                  </div>
+                              </div>
+                          );
+                      } else if (isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation) {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
+                                  <span className="text-xl">📁</span>
+                                  <div className="flex-1">
+                                      <p className="text-xs font-bold text-blue-800">{isAUP ? "Faculty Verified! " : "Payment Verified! "}Action Required</p>
+                                      <p className="text-[10px] text-blue-700 mt-1 mb-3 leading-relaxed"><b>Instruction:</b> You are now cleared to upload your final presentation deck and video to complete registration.</p>
+                                      <button onClick={() => { setCompletingReg(reg); setCompletingStep(4); }} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">Upload Final Files (Step 4)</button>
+                                  </div>
+                              </div>
+                          );
+                      } else if (hasPresentation && status !== "Approved") {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                                  <span className="text-xl">⏳</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-amber-800">Step 4: Final Review Pending</p>
+                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> Your presentation files are uploaded. Please wait for the Admin to issue the Final Approval.</p>
+                                  </div>
+                              </div>
+                          );
+                      } else if (hasPresentation && status === "Approved") {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
+                                  <span className="text-xl">✅</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-emerald-800">Registration Complete</p>
+                                      <p className="text-[10px] text-emerald-700 mt-1 leading-relaxed">All steps have been successfully completed. We look forward to your presentation!</p>
+                                  </div>
+                              </div>
+                          );
+                      }
+                  } else {
+                      // Participant Logic (Non-Presenter)
+                      if (!isStep1Approved && status !== 'Rejected') {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                                  <span className="text-xl">⏳</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-amber-800">Verification Pending</p>
+                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> Your registration details and payment are currently being verified by the admin.</p>
+                                  </div>
+                              </div>
+                          );
+                      } else if (isStep1Approved && status !== 'Rejected') {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
+                                  <span className="text-xl">✅</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-emerald-800">Registration Complete</p>
+                                      <p className="text-[10px] text-emerald-700 mt-1 leading-relaxed">Your registration has been approved. Enjoy the event!</p>
+                                  </div>
+                              </div>
+                          );
+                      }
+                  }
+
                   return (
                     <div key={`reg-${reg.id}-${idx}`} className="reg-card rounded-[2.5rem] p-7 shadow-sm">
                       <div className="flex justify-between items-start mb-6">
@@ -709,110 +820,8 @@
                         </div>
                       </div>
 
-                      {/* --- NEW: DETAILED PRESENTER INSTRUCTIONS --- */}
-                      {isPresenter && (
-                          <div className="mt-4 p-4 rounded-xl border bg-gray-50 border-gray-100 space-y-3">
-                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-200 pb-2">Presenter Progress</p>
-
-                              {/* GATE 1: Step 1 Pending Check */}
-                              {!isStep1Approved && status !== 'Rejected' && (
-                                  <div className="flex items-start gap-3">
-                                      <div className="text-xl">⏳</div>
-                                      <div>
-                                          <p className="text-xs font-bold text-amber-700">Step 1: Pending Admin Approval</p>
-                                          <p className="text-[10px] text-amber-600 mt-0.5 leading-relaxed">
-                                              <b>Instruction:</b> Please wait for the admin to approve your Step 1 (Identity & Details) before proceeding to Step 2 (Submit Paper).
-                                          </p>
-                                      </div>
-                                  </div>
-                              )}
-
-                              {/* GATE 2: Step 2 Unlocked (Submit Paper) */}
-                              {isStep1Approved && !paperForThisEvent && (
-                                  <div className="flex items-start gap-3">
-                                      <div className="text-xl">📝</div>
-                                      <div className="flex-1">
-                                          <p className="text-xs font-bold text-blue-700">Step 1 Approved! Action Required</p>
-                                          <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed mb-2">
-                                              <b>Instruction:</b> You can now submit your manuscript for OJS review.
-                                          </p>
-                                          <button onClick={() => { setTab("submit"); setPaperForm(p => ({ ...p, eventId: String(reg.eventId || reg.event_id) })); }} className="w-full py-2 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">
-                                              Go to Submit Paper (Step 2)
-                                          </button>
-                                      </div>
-                                  </div>
-                              )}
-
-                              {/* GATE 2 Check: Paper Submitted but Not Accepted */}
-                              {paperForThisEvent && !isPaperAccepted && (
-                                  <div className="flex items-start gap-3">
-                                      <div className="text-xl">⏳</div>
-                                      <div>
-                                          <p className="text-xs font-bold text-amber-700">Step 2: Paper Under Review</p>
-                                          <p className="text-[10px] text-amber-600 mt-0.5 leading-relaxed">
-                                              <b>Instruction:</b> Your paper is being reviewed. Please wait for the admin to approve Step 2 before proceeding to Step 3 (Payment).
-                                          </p>
-                                      </div>
-                                  </div>
-                              )}
-
-                              {/* GATE 3: Step 3 Unlocked (Upload Payment) - Skips if AUP */}
-                              {isPaperAccepted && !hasPayment && !isAUP && (
-                                  <div className="flex items-start gap-3">
-                                      <div className="text-xl">💳</div>
-                                      <div className="flex-1">
-                                          <p className="text-xs font-bold text-blue-700">Step 2 Accepted! Action Required</p>
-                                          <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed mb-2">
-                                              <b>Instruction:</b> Your paper has been accepted. Please upload your proof of payment.
-                                          </p>
-                                          <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="w-full py-2 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">
-                                              Upload Payment (Step 3)
-                                          </button>
-                                      </div>
-                                  </div>
-                              )}
-
-                              {/* GATE 3 Check: Payment Uploaded but Not Approved */}
-                              {isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP && (
-                                  <div className="flex items-start gap-3">
-                                      <div className="text-xl">⏳</div>
-                                      <div>
-                                          <p className="text-xs font-bold text-amber-700">Step 3: Payment Verification Pending</p>
-                                          <p className="text-[10px] text-amber-600 mt-0.5 leading-relaxed">
-                                              <b>Instruction:</b> The admin is verifying your payment. Please wait for the admin to approve Step 3 before proceeding to Step 4 (Upload Presentation).
-                                          </p>
-                                      </div>
-                                  </div>
-                              )}
-
-                              {/* GATE 4: Step 4 Unlocked (Upload Files) - Requires Payment Approved OR AUP */}
-                              {isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation && (
-                                  <div className="flex items-start gap-3">
-                                      <div className="text-xl">📁</div>
-                                      <div className="flex-1">
-                                          <p className="text-xs font-bold text-blue-700">Payment Verified! Action Required</p>
-                                          <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed mb-2">
-                                              <b>Instruction:</b> You are now cleared to upload your final presentation deck and video.
-                                          </p>
-                                          <button onClick={() => { setCompletingReg(reg); setCompletingStep(4); }} className="w-full py-2 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">
-                                              Upload Final Files (Step 4)
-                                          </button>
-                                      </div>
-                                  </div>
-                              )}
-                              
-                              {/* FINISHED: Registration Fully Complete */}
-                              {hasPresentation && (
-                                  <div className="flex items-start gap-3">
-                                      <div className="text-xl">✅</div>
-                                      <div>
-                                          <p className="text-xs font-bold text-emerald-700">Registration Complete</p>
-                                          <p className="text-[10px] text-emerald-600 mt-0.5 leading-relaxed">All steps have been successfully completed. We look forward to your presentation!</p>
-                                      </div>
-                                  </div>
-                              )}
-                          </div>
-                      )}
+                      {/* Render Phase Box */}
+                      {phaseUI}
 
                       <div className="mt-auto pt-4 border-t border-gray-50 flex flex-wrap gap-2">
                         <button 
@@ -864,7 +873,7 @@
                       </p>
                   </div>
 
-                  {/* --- NEW: EXPLICIT EMPTY STATE INSTRUCTION BANNER --- */}
+                  {/* EXPLICIT EMPTY STATE INSTRUCTION BANNER */}
                   {approvedEventsForPaper.length === 0 && (
                       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 animate-fade-in-up">
                           <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-1">ℹ️ Step 2 Requirement</p>
