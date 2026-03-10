@@ -501,7 +501,7 @@
     
     const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
     const isAUP = String(reg.university || '').toLowerCase().includes('aup');
-    const isOnline = String(reg.mode || '').toLowerCase() !== 'on-site';
+    const requiresVideo = String(reg.mode || '').toLowerCase() === 'virtual' || String(reg.mode || '').toLowerCase() === 'hybrid';
 
     // Status Flags
     const step1Done = reg.status === 'Step 1 Approved' || reg.status === 'Approved';
@@ -761,12 +761,12 @@
                                         <span className="text-amber-800 font-bold text-[10px] uppercase tracking-widest">View Deck</span>
                                     </a>
                                 )}
-                                {isOnline && videoUrl && (
-                                    <a href={videoUrl} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center w-32 h-24 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition shadow-sm group">
-                                        <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">📹</span>
-                                        <span className="text-rose-800 font-bold text-[10px] uppercase tracking-widest">View Video</span>
-                                    </a>
-                                )}
+                                {requiresVideo && videoUrl && (
+    <a href={videoUrl} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center w-32 h-24 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition shadow-sm group">
+        <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">📹</span>
+        <span className="text-rose-800 font-bold text-[10px] uppercase tracking-widest">View Video</span>
+    </a>
+)}
                             </div>
                         )}
                     </div>
@@ -1374,8 +1374,6 @@
                       {/* 5. Actions (MODERN PROFESSIONAL UI) */}
                       <td className="px-6 py-4 align-middle text-right">
                           <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                              
-                              {/* NFC Writer - Soft Secondary */}
                               <button 
                                   onClick={() => handleWriteNFC(r)}
                                   className="h-8 w-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
@@ -1384,7 +1382,6 @@
                                   📳
                               </button>
 
-                              {/* Preview - Outline Secondary */}
                               <button 
                                   onClick={() => onPreview(r)} 
                                   className="h-8 px-3 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
@@ -1392,7 +1389,35 @@
                                 Preview
                               </button>
                               
-                              {/* Delete - Ghost Icon */}
+                              {/* RESTORED: Approve and Reject Buttons */}
+                              {!isApproved && !isRejected && (
+                                  <>
+                                      <button 
+                                          onClick={() => onUpdateStatus(r.id, "Approved", r.roomId)} 
+                                          className="h-8 px-4 flex items-center justify-center rounded-lg bg-emerald-500 text-white text-xs font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+                                      >
+                                          Approve
+                                      </button>
+
+                                      <button 
+                                          onClick={() => onRevoke(r)} 
+                                          className="h-8 px-4 flex items-center justify-center rounded-lg bg-rose-500 text-white text-xs font-medium hover:bg-rose-600 transition-colors shadow-sm"
+                                      >
+                                          Reject
+                                      </button>
+                                  </>
+                              )}
+
+                              {/* RESTORED: Revoke Button */}
+                              {isApproved && (
+                                  <button 
+                                      onClick={() => onRevoke(r)} 
+                                      className="h-8 px-4 flex items-center justify-center rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors shadow-sm"
+                                  >
+                                    Revoke
+                                  </button>
+                              )}
+                              
                               <button 
                                   onClick={() => onDelete(r.id)} 
                                   className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors ml-1" 

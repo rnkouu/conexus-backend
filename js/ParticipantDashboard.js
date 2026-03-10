@@ -828,25 +828,46 @@
                               </div>
                           );
                       }
-                  } else {
-                      // Participant Logic (Non-Presenter)
-                      if (!isStep1Approved && status !== 'Rejected') {
+                 } else {
+                      // PARTICIPANT (Non-Presenter) LOGIC - 2 Steps Only
+                      if (!isStep1Approved && !isRejected) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
                                   <span className="text-xl">⏳</span>
                                   <div>
-                                      <p className="text-xs font-bold text-amber-800">Verification Pending</p>
-                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> Your registration details and payment are currently being verified by the admin.</p>
+                                      <p className="text-xs font-bold text-amber-800">Step 1: Pending Admin Approval</p>
+                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> Your registration details are currently being verified by the admin.</p>
                                   </div>
                               </div>
                           );
-                      } else if (isStep1Approved && status !== 'Rejected') {
+                      } else if (isStep1Approved && !hasPayment && !isAUP && !isRejected) {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
+                                  <span className="text-xl">💳</span>
+                                  <div className="flex-1">
+                                      <p className="text-xs font-bold text-blue-800">Step 1 Approved! Action Required</p>
+                                      <p className="text-[10px] text-blue-700 mt-1 mb-3 leading-relaxed"><b>Instruction:</b> Your details are verified. Please upload your proof of payment to finalize registration.</p>
+                                      <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="w-full py-2.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">Upload Payment (Step 2)</button>
+                                  </div>
+                              </div>
+                          );
+                      } else if (isStep1Approved && hasPayment && !isPaymentApproved && !isAUP && !isRejected) {
+                          phaseUI = (
+                              <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                                  <span className="text-xl">⏳</span>
+                                  <div>
+                                      <p className="text-xs font-bold text-amber-800">Step 2: Payment Verification Pending</p>
+                                      <p className="text-[10px] text-amber-700 mt-1 leading-relaxed"><b>Instruction:</b> The admin is verifying your payment receipt. You will receive final approval shortly.</p>
+                                  </div>
+                              </div>
+                          );
+                      } else if (isApproved || isAUP) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
                                   <span className="text-xl">✅</span>
                                   <div>
                                       <p className="text-xs font-bold text-emerald-800">Registration Complete</p>
-                                      <p className="text-[10px] text-emerald-700 mt-1 leading-relaxed">Your registration has been approved. Enjoy the event!</p>
+                                      <p className="text-[10px] text-emerald-700 mt-1 leading-relaxed">Your registration has been fully approved. Enjoy the event!</p>
                                   </div>
                               </div>
                           );
@@ -1284,7 +1305,7 @@
                                     </div>
 
                                     {/* ONLY REQUIRED IF EVENT MODE IS "ONLINE" */}
-                                    {String(completingReg.mode || '').toLowerCase() === 'online' && (
+                                    {(String(completingReg.mode || '').toLowerCase() === 'virtual' || String(completingReg.mode || '').toLowerCase() === 'hybrid') && (
                                       <div className="animate-fade-in-up">
                                           <label className="text-[10px] font-black text-rose-500 uppercase mb-1 block flex items-center gap-1">
                                               <span>📹</span> Sample Video (.mp4) * <span className="text-gray-400 font-normal normal-case ml-1">(Required for Online Events)</span>
