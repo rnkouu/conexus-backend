@@ -354,6 +354,51 @@ app.post('/api/register', verifyToken, upload.fields([
     });
 });
 
+// --- NEW: Handle Presenter Step 3 (Payment) and Step 4 (Files) Uploads ---
+app.post('/api/register/complete', verifyToken, upload.fields([
+    { name: 'proof_of_payment', maxCount: 1 },
+    { name: 'presentation_file', maxCount: 1 },
+    { name: 'video_file', maxCount: 1 }
+]), (req, res) => {
+    const { registration_id, step } = req.body;
+    
+    let updates = [];
+    let params = [];
+
+    // If Step 3: Save Payment File
+    if (Number(step) === 3 && req.files && req.files['proof_of_payment']) {
+        updates.push('proof_of_payment_path = ?');
+        params.push(req.files['proof_of_payment'][0].path);
+        updates.push('payment_status = ?');
+        params.push('Pending'); 
+    } 
+    // If Step 4: Save Presentation Files
+    else if (Number(step) === 4 && req.files) {
+        if (req.files['presentation_file']) {
+            updates.push('presentation_path = ?');
+            params.push(req.files['presentation_file'][0].path);
+        }
+        if (req.files['video_file']) {
+            updates.push('video_path = ?');
+            params.push(req.files['video_file'][0].path);
+        }
+        updates.push('files_status = ?');
+        params.push('Pending');
+    }
+
+    if (updates.length === 0) {
+        return res.status(400).json({ success: false, message: "No valid files received." });
+    }
+
+    const sql = `UPDATE registrations SET ${updates.join(', ')} WHERE id = ?`;
+    params.push(registration_id);
+
+    db.query(sql, params, (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, message: "Files successfully saved to database." });
+    });
+});
+
 app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
     const { user_email, event_id, title, abstract } = req.body;
     const file = req.file;
