@@ -679,6 +679,7 @@
                 myEvents.map((reg, idx) => {
                   const status = reg.status || "Pending";
                   const isApproved = status === "Approved";
+                  const isRejected = status === "Rejected";
                   const isStep1Approved = status === "Step 1 Approved" || isApproved;
                   const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
                   
