@@ -60,78 +60,21 @@
       const style = document.createElement("style");
       style.id = ID;
       style.textContent = `
-        .badge-academic {
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          padding: 4px 10px;
-          border-radius: 6px;
-        }
+        .badge-academic { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 10px; border-radius: 6px; }
         .badge-academic-gold { background: var(--u-gold); color: var(--u-navy); }
         .badge-academic-blue { background: var(--u-sky); color: var(--u-blue); border: 1px solid rgba(30,90,168,.15); }
-        
-        .u-input-academic {
-          width: 100%;
-          padding: 10px 14px;
-          border-radius: 12px;
-          border: 1px solid var(--u-border);
-          font-size: 14px;
-          transition: all 0.2s ease;
-          background: #fff;
-        }
-        .u-input-academic:focus {
-          border-color: var(--u-blue);
-          box-shadow: 0 0 0 4px rgba(30,90,168,.08);
-          outline: none;
-        }
-
-        .table-academic thead {
-          background: var(--u-sky);
-          border-bottom: 2px solid var(--u-border);
-        }
-        .table-academic th {
-          font-size: 11px;
-          font-weight: 800;
-          color: var(--u-navy);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-        }
-
-        .status-dot {
-          height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 6px;
-        }
+        .u-input-academic { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--u-border); font-size: 14px; transition: all 0.2s ease; background: #fff; }
+        .u-input-academic:focus { border-color: var(--u-blue); box-shadow: 0 0 0 4px rgba(30,90,168,.08); outline: none; }
+        .table-academic thead { background: var(--u-sky); border-bottom: 2px solid var(--u-border); }
+        .table-academic th { font-size: 11px; font-weight: 800; color: var(--u-navy); text-transform: uppercase; letter-spacing: 0.1em; }
+        .status-dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
         .bg-under_review { background: #f59e0b; }
         .bg-accepted { background: #10b981; }
         .bg-rejected { background: #ef4444; }
-
-        /* --- NEW REGISTRATION TAB STYLES --- */
-        .reg-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 1.5rem;
-        }
-        .reg-card {
-          background: white;
-          border: 1px solid rgba(0,0,0,0.05);
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          position: relative;
-          display: flex;
-          flex-direction: column;
-        }
-        .reg-card:hover {
-          transform: translateY(-8px);
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-          border-color: var(--u-blue);
-        }
-        .status-pill {
-          font-size: 10px;
-          font-weight: 800;
-          text-transform: uppercase;
-          padding: 6px 12px;
-          border-radius: 99px;
-          letter-spacing: 0.05em;
-        }
+        .reg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+        .reg-card { background: white; border: 1px solid rgba(0,0,0,0.05); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; display: flex; flex-direction: column; }
+        .reg-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border-color: var(--u-blue); }
+        .status-pill { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 6px 12px; border-radius: 99px; letter-spacing: 0.05em; }
         .status-Approved { background: #ecfdf5; color: #065f46; border: 1px solid #10b98133; }
         .status-Pending { background: #fffbeb; color: #92400e; border: 1px solid #f59e0b33; }
         .status-Rejected { background: #fef2f2; color: #991b1b; border: 1px solid #ef444433; }
@@ -144,33 +87,22 @@
   function RegistrationDetailsModal({ reg, event, rooms = [], dorms = [], onClose }) {
     if (!reg) return null;
     
-    // Construct image URL assuming backend is on port 8000
     const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId}` : null;
     const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath}` : null;
     const companions = Array.isArray(reg.companions) ? reg.companions : [];
 
-    // --- ACCOMMODATION LOOKUP LOGIC ---
     let assignedRoomName = "";
     let assignedDormName = "";
-    
-    // Check both roomId and room_id just in case the frontend didn't normalize it
     const actualRoomId = reg.roomId || reg.room_id;
 
     if (actualRoomId) {
         const foundRoom = rooms.find(r => String(r.id) === String(actualRoomId));
         if (foundRoom) {
             assignedRoomName = `Room ${foundRoom.name}`;
-            
-            // Look up the Dorm/Hotel name
             const actualDormId = foundRoom.dormId || foundRoom.dorm_id;
             const foundDorm = dorms.find(d => String(d.id) === String(actualDormId));
-            if (foundDorm) {
-                assignedDormName = foundDorm.name;
-            } else {
-                assignedDormName = "Unknown Location";
-            }
+            assignedDormName = foundDorm ? foundDorm.name : "Unknown Location";
         } else {
-            // Data is still loading from the API
             assignedRoomName = `Room ID: ${actualRoomId}`;
         }
     }
@@ -179,7 +111,6 @@
       <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
         <div className="w-full max-w-lg animate-fade-in-up my-auto" onClick={e => e.stopPropagation()}>
           <div className="rounded-[2rem] overflow-hidden bg-white shadow-2xl border border-gray-100">
-            {/* Header */}
             <div className="px-8 py-6 bg-[var(--u-navy)] text-white relative">
                <div className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--u-gold)]" />
                <div className="flex justify-between items-start">
@@ -192,7 +123,22 @@
             </div>
 
             <div className="p-8 space-y-6">
-               {/* Event Summary */}
+               
+               {/* --- NEW VISUAL STATUS TRACKER --- */}
+               <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-2">
+                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 text-center">Registration Progress</p>
+                 <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 rounded-full bg-emerald-500 shadow-sm"></div>
+                    <div className="flex-1 h-2 rounded-full bg-emerald-500 shadow-sm"></div>
+                    <div className={`flex-1 h-2 rounded-full shadow-sm transition-all duration-500 ${reg.status === 'Approved' ? 'bg-emerald-500' : reg.status === 'Rejected' ? 'bg-red-500' : 'bg-amber-400 animate-pulse'}`}></div>
+                 </div>
+                 <div className="flex justify-between mt-3 text-[9px] font-black uppercase tracking-widest text-gray-500">
+                    <span>1. Details</span>
+                    <span className="text-center">2. Payment</span>
+                    <span className={`text-right ${reg.status === 'Approved' ? 'text-emerald-600' : reg.status === 'Rejected' ? 'text-red-600' : 'text-amber-600'}`}>3. Admin Verify</span>
+                 </div>
+               </div>
+
                <div className="flex items-start justify-between gap-4">
                  <div>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Event</p>
@@ -212,7 +158,6 @@
                  </div>
                </div>
 
-               {/* --- NEW: ADMIN NOTE BLOCK --- */}
                {(reg.adminNote || reg.admin_note) && (
                    <div className="bg-red-50 p-4 rounded-xl border border-red-200">
                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Message from Admin</p>
@@ -222,7 +167,6 @@
                    </div>
                )}
 
-               {/* --- ACCOMMODATION BLOCK --- */}
                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-4">
                    <div className="text-2xl pt-1">🛏️</div>
                    <div>
@@ -238,17 +182,6 @@
                    </div>
                </div>
 
-               {/* Event Description */}
-               {event?.description && (
-                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Description</p>
-                       <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
-                           {event.description}
-                       </p>
-                   </div>
-               )}
-
-               {/* Valid ID & Payment Display */}
                <div className="grid grid-cols-2 gap-4">
                    <div>
                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Valid ID</p>
@@ -270,7 +203,6 @@
                    </div>
                </div>
 
-               {/* Companions List */}
                {companions.length > 0 && (
                  <div>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Companions ({companions.length})</p>
@@ -307,63 +239,6 @@
     };
   };
 
-  // --- MULTI-STEP REGISTRATION SUB-COMPONENTS ---
-  function Step1Form({ formData, setFormData, hasAcceptedPaperForSelected, regRole, setRegRole, selectedFile, setSelectedFile, onNext, onCancel }) {
-    return (
-      <form onSubmit={(e) => { e.preventDefault(); onNext(); }} className="p-8 space-y-4">
-        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
-          <button type="button" onClick={() => setRegRole('participant')} className={classNames("flex-1 py-2 text-xs font-bold rounded-lg transition-all", regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500')}>Participant</button>
-          {hasAcceptedPaperForSelected ? (
-            <button type="button" onClick={() => setRegRole('presenter')} className={classNames("flex-1 py-2 text-xs font-bold rounded-lg transition-all", regRole === 'presenter' ? 'bg-brand text-white shadow' : 'text-gray-500')}>Event Presenter</button>
-          ) : (
-            <button type="button" disabled className="flex-1 py-2 text-xs font-bold rounded-lg bg-gray-200 text-gray-400 cursor-not-allowed">Presenter 🔒</button>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} required /></div>
-          <div className="col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase">First Name *</label><input className="u-input-academic" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} required /></div>
-          <div className="col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase">Institution</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData({...formData, university: e.target.value})} placeholder="e.g. AUP" /></div>
-          <div className="col-span-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase">Upload Valid ID / Faculty ID *</label>
-            <input type="file" accept="image/*" className="u-input-academic text-xs" onChange={(e) => setSelectedFile(e.target.files[0])} required />
-          </div>
-        </div>
-        <div className="flex gap-2 pt-6 border-t border-gray-100 justify-end">
-          <button type="button" onClick={onCancel} className="px-5 py-2 text-xs font-extrabold text-gray-500">Cancel</button>
-          <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold">Next: Payment Details</button>
-        </div>
-      </form>
-    );
-  }
-
-  function Step2Form({ isAUP, paymentFile, setPaymentFile, onNext, onBack }) {
-    return (
-      <div className="p-8 space-y-6">
-        {isAUP ? (
-          <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center">
-            <div className="text-3xl mb-2">🎓</div>
-            <p className="text-sm text-blue-800 font-bold">AUP Faculty Account Detected</p>
-            <p className="text-xs text-blue-600 mt-2 leading-relaxed">Registration fees are waived for AUP Faculty. We will verify your Faculty ID uploaded in Step 1.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl text-xs">
-              <p className="font-black text-brand uppercase mb-2">BPI Payment Details</p>
-              <p>Acc Name: Adventist University of the Philippines</p>
-              <p>Acc Num: <span className="font-mono font-bold">8921003316</span></p>
-            </div>
-            <label className="text-[10px] font-black text-gray-400 uppercase">Upload Proof of Payment *</label>
-            <input type="file" accept="image/*" className="u-input-academic text-xs" onChange={(e) => setPaymentFile(e.target.files[0])} required />
-          </div>
-        )}
-        <div className="flex gap-2 justify-end pt-4 border-t border-gray-100">
-          <button onClick={onBack} className="px-5 py-2 text-xs font-extrabold text-gray-500">Back</button>
-          <button onClick={onNext} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold">Submit Registration</button>
-        </div>
-      </div>
-    );
-  }
-
   function ParticipantDashboard({
     user,
     events,
@@ -376,26 +251,20 @@
     onUpdateUser
   }) {
     const [tab, setTab] = useState("upcoming");
+    
+    // --- MULTI STEP TRACKING ---
     const [currentRegStep, setCurrentRegStep] = useState(1);
     
-    // Use regular initial state so we can calculate it on each render properly
     const [formData, setFormData] = useState({ firstName: "", lastName: "", middleName: "", gender: "", age: "", email: "", university: "", contact: "" });
     const isAUP = formData.university?.toLowerCase().includes("aup");
 
-    const handleStep1Submit = () => {
-        if (!selectedFile) return window.Swal.fire('ID Required', 'Please upload your ID first.', 'warning');
-        setCurrentRegStep(2);
-    };
-    
     const [filterType, setFilterType] = useState("all");
     const [selectedEvent, setSelectedEvent] = useState(null);
     
-    // --- Room & Dorm State (Fetched automatically now) ---
     const [localRooms, setLocalRooms] = useState([]);
     const [localDorms, setLocalDorms] = useState([]);
     const [liveRegs, setLiveRegs] = useState([]);
 
-    // --- Registration States ---
     const [regRole, setRegRole] = useState('participant'); 
     const [participantsCount, setParticipantsCount] = useState(1);
     const [companions, setCompanions] = useState([]); 
@@ -404,17 +273,11 @@
     const [presentationFile, setPresentationFile] = useState(null); 
     const [videoFile, setVideoFile] = useState(null); 
     
-    // --- View/Preview State ---
     const [previewReg, setPreviewReg] = useState(null);
-
-    // --- Submission States ---
     const [saving, setSaving] = useState(false);
-    const [confirmOpen, setConfirmOpen] = useState(false);
-    const [pendingPayload, setPendingPayload] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [animateUpcoming, setAnimateUpcoming] = useState(false);
     
-    // --- Paper Submission States (UPDATED) ---
     const [paperForm, setPaperForm] = useState({ eventId: "", title: "", track: "General Research", abstract: "" });
     const [paperFile, setPaperFile] = useState(null);
     const [paperFileName, setPaperFileName] = useState("");
@@ -425,19 +288,10 @@
     const [statusFilter, setStatusFilter] = useState("all");
     const [submissions, setSubmissions] = useState(Array.isArray(submissionsProp) ? submissionsProp.map(normalizeSubmission) : []);
 
-    // FETCH ACCOMMODATION DATA SO IT WORKS WITHOUT CHANGING APP.JS
     useEffect(() => {
-      fetch(`${API_BASE}/dorms`, { headers: getAuthHeaders() })
-        .then(r => r.ok ? r.json() : [])
-        .then(data => setLocalDorms(Array.isArray(data) ? data : []))
-        .catch(console.error);
-        
-      fetch(`${API_BASE}/rooms`, { headers: getAuthHeaders() })
-        .then(r => r.ok ? r.json() : [])
-        .then(data => setLocalRooms(Array.isArray(data) ? data : []))
-        .catch(console.error);
+      fetch(`${API_BASE}/dorms`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).then(data => setLocalDorms(Array.isArray(data) ? data : [])).catch(console.error);
+      fetch(`${API_BASE}/rooms`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).then(data => setLocalRooms(Array.isArray(data) ? data : [])).catch(console.error);
 
-      // Keep User Registrations in sync directly with Database
       const fetchLiveRegs = () => {
           fetch(`${API_BASE}/registrations`, { headers: getAuthHeaders() })
             .then(r => r.ok ? r.json() : [])
@@ -455,26 +309,11 @@
       return () => clearInterval(interval);
     }, [user]);
 
-    useEffect(() => {
-      if (Array.isArray(submissionsProp)) setSubmissions(submissionsProp.map(normalizeSubmission));
-    }, [submissionsProp]);
-
-    useEffect(() => {
-      let id;
-      if (selectedEvent) { setModalVisible(false); id = setTimeout(() => setModalVisible(true), 10); } 
-      else { setModalVisible(false); }
-      return () => id && clearTimeout(id);
-    }, [selectedEvent]);
-
-    useEffect(() => {
-      if (tab !== "upcoming") return;
-      setAnimateUpcoming(false);
-      setTimeout(() => setAnimateUpcoming(true), 10);
-    }, [tab, events?.length]);
+    useEffect(() => { if (Array.isArray(submissionsProp)) setSubmissions(submissionsProp.map(normalizeSubmission)); }, [submissionsProp]);
+    useEffect(() => { let id; if (selectedEvent) { setModalVisible(false); id = setTimeout(() => setModalVisible(true), 10); } else { setModalVisible(false); } return () => id && clearTimeout(id); }, [selectedEvent]);
+    useEffect(() => { if (tab !== "upcoming") return; setAnimateUpcoming(false); setTimeout(() => setAnimateUpcoming(true), 10); }, [tab, events?.length]);
 
     const upcomingEvents = Array.isArray(events) ? events.filter((e) => !e.past) : [];
-    
-    // MERGE PROP DATA WITH LIVE DATA AND INCLUDE CERTIFICATE TIMESTAMP
     const baseEvents = Array.isArray(registrations) ? registrations : [];
     const myEvents = baseEvents.map(baseReg => {
         const liveMatch = liveRegs.find(live => String(live.id) === String(baseReg.id));
@@ -498,12 +337,11 @@
       return list;
     };
 
-    // NEW: Check if the user has an ACCEPTED paper for the currently selected event
     const hasAcceptedPaperForSelected = selectedEvent ? submissions.some(s => String(s.eventId) === String(selectedEvent.id) && s.status === 'accepted') : false;
 
     const openRegisterModal = (event) => {
       setSelectedEvent(event);
-      setCurrentRegStep(1); // Reset to Step 1 upon opening
+      setCurrentRegStep(1); 
       setParticipantsCount(1);
       setCompanions([]); 
       setFormData({
@@ -523,34 +361,27 @@
       setVideoFile(null);
     };
 
-    const incrementParticipants = () => {
-      setParticipantsCount(prev => prev + 1);
-      setCompanions(prev => [...prev, { name: "", relation: "", phone: "", email: "" }]);
+    const incrementParticipants = () => { setParticipantsCount(prev => prev + 1); setCompanions(prev => [...prev, { name: "", relation: "", phone: "", email: "" }]); };
+    const decrementParticipants = () => { if (participantsCount > 1) { setParticipantsCount(prev => prev - 1); setCompanions(prev => prev.slice(0, -1)); } };
+    const handleCompanionChange = (index, field, value) => { const updated = [...companions]; updated[index] = { ...updated[index], [field]: value }; setCompanions(updated); };
+
+    // --- STEP LOGIC ---
+    const handleStep1Submit = () => {
+        if (!selectedFile) return window.Swal.fire('ID Required', 'Please upload your ID first.', 'warning');
+        if (regRole === 'presenter' && (!presentationFile || !videoFile)) {
+            return window.Swal.fire({ title: 'Missing Files', text: 'Presenters must upload both a presentation file and a sample video.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
+        }
+        setCurrentRegStep(2);
     };
 
-    const decrementParticipants = () => {
-      if (participantsCount > 1) {
-        setParticipantsCount(prev => prev - 1);
-        setCompanions(prev => prev.slice(0, -1));
-      }
-    };
-
-    const handleCompanionChange = (index, field, value) => {
-      const updated = [...companions];
-      updated[index] = { ...updated[index], [field]: value };
-      setCompanions(updated);
+    const handleStep2Submit = () => {
+        if (!paymentFile && !isAUP) {
+            return window.Swal.fire({ title: 'Payment Required', text: 'Please upload Proof of Payment.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
+        }
+        setCurrentRegStep(3);
     };
 
     const handleFinalRegistration = async () => {
-      if (!selectedFile || (!paymentFile && !isAUP)) {
-          window.Swal.fire({ title: 'Files Required', text: 'Please upload both your Valid ID and Proof of Payment.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
-          return;
-      }
-      if (regRole === 'presenter' && (!presentationFile || !videoFile)) {
-          window.Swal.fire({ title: 'Missing Files', text: 'Presenters must upload both a presentation file and a sample video.', icon: 'warning', confirmButtonColor: '#1e5aa8' });
-          return;
-      }
-
       setSaving(true);
       try {
           const payload = new FormData();
@@ -570,8 +401,6 @@
           payload.append('gender', formData.gender);
           payload.append('age', formData.age);
           payload.append('contact_number', formData.contact);
-          
-          // Added University Field Here
           payload.append('university', formData.university); 
 
           const token = localStorage.getItem('conexus_token'); 
@@ -585,9 +414,8 @@
           const data = await response.json();
           
           if (data.success) {
-              window.Swal.fire({ title: 'Registration Submitted!', text: 'Please wait for admin approval.', icon: 'success', confirmButtonColor: '#1e5aa8' });
+              window.Swal.fire({ title: 'Registration Submitted!', text: 'Your credentials have been sent to the Admin for verification.', icon: 'success', confirmButtonColor: '#1e5aa8' });
               setSelectedEvent(null); 
-              setConfirmOpen(false);
               setTab("my");
               if(onRegister) onRegister(); 
           } else {
@@ -598,7 +426,6 @@
           window.Swal.fire({ title: 'Network Error', text: 'Unable to connect to the server.', icon: 'error', confirmButtonColor: '#1e5aa8' });
       } finally {
           setSaving(false);
-          setConfirmOpen(false);
       }
     };
 
@@ -608,42 +435,23 @@
       setPaperSaving(true);
       setPaperError("");
       
-      const localRow = normalizeSubmission({ 
-        id: Date.now(), 
-        userEmail: user?.email, 
-        eventId: paperForm.eventId || null,
-        title: paperForm.title, 
-        track: paperForm.track, 
-        status: "under_review", 
-        fileName: paperFile.name, 
-        submittedAt: new Date().toISOString() 
-      });
+      const localRow = normalizeSubmission({ id: Date.now(), userEmail: user?.email, eventId: paperForm.eventId || null, title: paperForm.title, track: paperForm.track, status: "under_review", fileName: paperFile.name, submittedAt: new Date().toISOString() });
 
       try {
         if (typeof onSubmitPaper === "function") {
           const result = await onSubmitPaper({ ...paperForm, file: paperFile, user });
           setSubmissions(prev => [normalizeSubmission(result || localRow), ...prev]);
-        } else { 
-          setSubmissions(prev => [localRow, ...prev]); 
-        }
+        } else { setSubmissions(prev => [localRow, ...prev]); }
         setPaperForm({ eventId: "", title: "", track: "General Research", abstract: "" });
         setPaperFileName("");
         setPaperSuccess("Paper submitted successfully!");
-        
         setTimeout(() => setPaperSuccess(""), 4000);
-      } catch (err) { 
-        setPaperError("Submission failed."); 
-      } finally { 
-        setPaperSaving(false); 
-      }
+      } catch (err) { setPaperError("Submission failed."); } finally { setPaperSaving(false); }
     };
 
-    // --- NEW: GENERATE & DOWNLOAD CERTIFICATE FUNCTION ---
     const handleDownloadCertificate = (reg) => {
         const printWindow = window.open('', '_blank');
         const issueDate = reg.certificate_issued_at ? new Date(reg.certificate_issued_at).toLocaleDateString() : new Date().toLocaleDateString();
-        
-        // NEW: Generate verification QR code dynamically
         const verifyUrl = `https://cconexus.vercel.app/?verify=${reg.id}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}`;
         
@@ -666,11 +474,7 @@
                         .footer { position: absolute; bottom: 50px; left: 50px; right: 50px; display: flex; justify-content: space-between; align-items: flex-end; }
                         .signature { border-top: 1px solid #111; width: 200px; padding-top: 5px; font-size: 14px; font-weight: bold; text-align: left; }
                         .meta { text-align: right; font-size: 10px; color: #999; display: flex; flex-direction: column; align-items: flex-end; }
-                        @media print { 
-                            @page { size: landscape; margin: 0; }
-                            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
-                            .cert { width: 100%; height: 100%; border: none; } 
-                        }
+                        @media print { @page { size: landscape; margin: 0; } body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .cert { width: 100%; height: 100%; border: none; } }
                     </style>
                 </head>
                 <body>
@@ -682,7 +486,6 @@
                             <div class="reason">For active participation in</div>
                             <div class="event">${reg.eventTitle || "Academic Event"}</div>
                             <div class="date">${formatDateRange(reg.startDate, reg.endDate)}</div>
-                            
                             <div class="footer">
                                 <div class="signature">Demo Admin<br><span style="font-weight:normal;font-size:10px;color:#555;">Conexus Events Team</span></div>
                                 <div class="meta">
@@ -693,10 +496,7 @@
                             </div>
                         </div>
                     </div>
-                    <script>
-                        // Wait slightly longer to ensure QR image loads before printing
-                        setTimeout(() => window.print(), 800);
-                    </script>
+                    <script>setTimeout(() => window.print(), 800);</script>
                 </body>
             </html>
         `);
@@ -800,7 +600,6 @@
             </div>
           )}
 
-          {/* --- NEW REGISTRATION GRID WITH DYNAMIC CERTIFICATE BUTTON --- */}
           {tab === "my" && (
             <div className="reg-grid animate-fade-in-up">
               {myEvents.length === 0 ? (
@@ -854,7 +653,6 @@
                           Details
                         </button>
                         
-                        {/* QUICK SUBMIT PAPER SHORTCUT */}
                         {isApproved && (
                           <button 
                             onClick={() => {
@@ -876,7 +674,6 @@
                           </button>
                         )}
 
-                        {/* --- NEW: DYNAMIC CERTIFICATE BUTTON --- */}
                         {isApproved && reg.certificate_issued_at && (
                           <button 
                             onClick={() => handleDownloadCertificate(reg)}
@@ -899,7 +696,6 @@
                <div className="u-card p-8 rounded-[2rem]">
                   <h3 className="text-xl font-black text-brand mb-2">8IRF Full Paper Submission</h3>
                   
-                  {/* AUP CUSTOM ALERT BANNER */}
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
                       <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-1">⚠️ Important Note</p>
                       <p className="text-xs text-amber-900 mb-2 leading-relaxed">
@@ -912,14 +708,9 @@
                   </div>
                   
                   <form onSubmit={handlePaperSubmit} className="space-y-4">
-                     {/* --- EVENT SELECTION DROPDOWN --- */}
                      <div>
                         <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Link to Event</label>
-                        <select 
-                           className="u-input-academic" 
-                           value={paperForm.eventId} 
-                           onChange={e => setPaperForm(p => ({...p, eventId: e.target.value}))}
-                        >
+                        <select className="u-input-academic" value={paperForm.eventId} onChange={e => setPaperForm(p => ({...p, eventId: e.target.value}))}>
                            <option value="">-- Select Event --</option>
                            {myEvents.filter(r => r.status === "Approved").map(r => (
                                <option key={r.eventId} value={r.eventId}>{r.eventTitle}</option>
@@ -932,7 +723,6 @@
                          <input className="u-input-academic" value={paperForm.title} onChange={e => setPaperForm(p=>({...p, title: e.target.value}))} placeholder="Full academic title" required />
                      </div>
                      
-                     {/* CHANGED "Research Track" to "Select Strand" */}
                      <div>
                          <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Select Strand *</label>
                          <select className="u-input-academic" value={paperForm.track} onChange={e => setPaperForm(p=>({...p, track: e.target.value}))} required>
@@ -950,7 +740,6 @@
                          <textarea rows={4} className="u-input-academic" value={paperForm.abstract} onChange={e => setPaperForm(p=>({...p, abstract: e.target.value}))} placeholder="Brief summary of your work..." />
                      </div>
                      
-                     {/* CHANGED TO ACCEPT MS WORD (.docx) INSTEAD OF PDF */}
                      <div className="relative mt-2">
                         <label className="u-input-academic border-dashed py-8 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors">
                           <input type="file" accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={e => {setPaperFile(e.target.files[0]); setPaperFileName(e.target.files[0]?.name);}} required />
@@ -1019,7 +808,6 @@
 
           {tab === "business_card" && (
             <div className="animate-fade-in-up">
-              {/* Check if EditBusinessCard is defined globally or pass fallback */}
               {typeof EditBusinessCard !== 'undefined' ? 
                 <EditBusinessCard user={user} onUpdateUser={onUpdateUser} /> 
                 : <p className="text-center p-10 text-gray-400 font-bold">Business Card Component Loading...</p>
@@ -1028,7 +816,7 @@
           )}
         </div>
 
-        {/* Registration Modal */}
+        {/* --- REGISTRATION MODAL --- */}
         {selectedEvent && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setSelectedEvent(null)}>
             <div className="w-full max-w-xl animate-fade-in-up my-auto" onClick={e => e.stopPropagation()}>
@@ -1039,21 +827,38 @@
                     <p className="text-xs text-white/75 mt-1">Enrolling in: <strong className="text-[var(--u-gold)]">{selectedEvent.title}</strong></p>
                  </div>
 
-                 {/* MULTI-STEP REGISTRATION FORM LOGIC HOOKED UP HERE */}
+                 {/* --- NEW: VISUAL STEPPER TRACKER --- */}
+                 <div className="px-10 pt-8 pb-4">
+                    <div className="relative flex justify-between items-center max-w-xs mx-auto">
+                       <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 -translate-y-1/2 z-0 rounded-full"></div>
+                       <div className="absolute top-1/2 left-0 h-1 bg-[var(--u-blue)] -translate-y-1/2 z-0 transition-all duration-500 rounded-full" style={{ width: currentRegStep === 1 ? '0%' : currentRegStep === 2 ? '50%' : '100%' }}></div>
+                       
+                       {[
+                         { step: 1, label: 'Details' },
+                         { step: 2, label: 'Payment' },
+                         { step: 3, label: 'Review' }
+                       ].map(s => (
+                          <div key={s.step} className="relative z-10 flex flex-col items-center bg-white px-2">
+                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all duration-300 ${currentRegStep === s.step ? 'bg-[var(--u-blue)] text-white border-[var(--u-blue)] shadow-md scale-110' : currentRegStep > s.step ? 'bg-[var(--u-navy)] text-white border-[var(--u-navy)]' : 'bg-white text-gray-300 border-gray-100'}`}>
+                                {currentRegStep > s.step ? '✓' : s.step}
+                             </div>
+                             <span className={`absolute top-10 text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${currentRegStep >= s.step ? 'text-[var(--u-navy)]' : 'text-gray-400'}`}>{s.label}</span>
+                          </div>
+                       ))}
+                    </div>
+                 </div>
+                 <div className="mt-4"></div>
+
                  <form onSubmit={(e) => { 
                      e.preventDefault(); 
-                     if (currentRegStep === 1) {
-                         handleStep1Submit();
-                     } else {
-                         setPendingPayload({event: selectedEvent, formData}); 
-                         setConfirmOpen(true); 
-                     }
-                 }} className="p-8 space-y-4">
+                     if (currentRegStep === 1) handleStep1Submit();
+                     else if (currentRegStep === 2) handleStep2Submit();
+                     else handleFinalRegistration();
+                 }} className="px-8 pb-8 pt-2 space-y-4">
                     
                     {/* --- STEP 1: Personal Details --- */}
                     {currentRegStep === 1 && (
                       <div className="animate-fade-in-up space-y-4">
-                        {/* NEW: ROLE SELECTOR WITH LOCK LOGIC */}
                         <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
                           <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
                           
@@ -1065,22 +870,17 @@
                                       Presenter 🔒
                                   </button>
                                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-56 bg-gray-900 text-white text-[10px] text-center rounded-lg p-3 shadow-xl z-50 leading-relaxed">
-                                      You must submit a Full Paper and receive a <b>Notice of Acceptance</b> from the Admin before you can register and pay as a Presenter.
+                                      You must submit a Full Paper and receive a Notice of Acceptance from the Admin before you can register and pay as a Presenter.
                                   </div>
                               </div>
                           )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                          {/* AUP Requirements: Name Breakdown */}
                           <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} required /></div>
                           <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">First Name *</label><input className="u-input-academic" value={formData.firstName} onChange={e => setFormData(p=>({...p, firstName: e.target.value}))} required /></div>
                           <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Middle Name</label><input className="u-input-academic" value={formData.middleName} onChange={e => setFormData(p=>({...p, middleName: e.target.value}))} /></div>
-                          
-                          {/* Read-Only Email */}
-                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email *</label><input className="u-input-academic bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200 shadow-inner" type="email" value={formData.email} readOnly title="Email is tied to your account." /></div>
-                          
-                          {/* AUP Demographics */}
+                          <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email *</label><input className="u-input-academic bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200 shadow-inner" type="email" value={formData.email} readOnly /></div>
                           <div className="col-span-2 sm:col-span-1">
                               <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Gender *</label>
                               <select className="u-input-academic" value={formData.gender} onChange={e => setFormData(p=>({...p, gender: e.target.value}))} required>
@@ -1093,13 +893,11 @@
                           <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Mobile Number *</label><input className="u-input-academic" value={formData.contact} onChange={e => setFormData(p=>({...p, contact: e.target.value}))} required /></div>
                           <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Institution</label><input className="u-input-academic" value={formData.university} onChange={e => setFormData(p=>({...p, university: e.target.value}))} placeholder="e.g. AUP" /></div>
                           
-                          {/* ID UPLOAD */}
                           <div className="col-span-2">
                               <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Upload Valid ID *</label>
                               <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer text-xs" onChange={(e) => setSelectedFile(e.target.files[0])} required />
                           </div>
 
-                          {/* NEW: PRESENTER CONDITIONAL UPLOADS */}
                           {regRole === 'presenter' && (
                             <>
                               <div className="col-span-2 border-t border-gray-100 pt-4 mt-2">
@@ -1132,7 +930,6 @@
                           </div>
                         </div>
 
-                        {/* DYNAMIC COMPANION INPUTS */}
                         {companions.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in-up">
                             <h4 className="text-xs font-black text-brand uppercase mb-3">Additional Attendees</h4>
@@ -1141,18 +938,8 @@
                                 <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                                   <p className="text-[10px] font-bold text-blue-500 uppercase mb-2">Guest {index + 1}</p>
                                   <div className="grid grid-cols-2 gap-3">
-                                    <div className="col-span-2 sm:col-span-1">
-                                      <input className="u-input-academic text-xs" placeholder="Full Name" value={comp.name} onChange={e => handleCompanionChange(index, "name", e.target.value)} required />
-                                    </div>
-                                    <div className="col-span-2 sm:col-span-1">
-                                      <input className="u-input-academic text-xs" placeholder="Relation" value={comp.relation} onChange={e => handleCompanionChange(index, "relation", e.target.value)} />
-                                    </div>
-                                    <div className="col-span-2 sm:col-span-1">
-                                      <input className="u-input-academic text-xs" placeholder="Email (Optional)" value={comp.email} onChange={e => handleCompanionChange(index, "email", e.target.value)} />
-                                    </div>
-                                    <div className="col-span-2 sm:col-span-1">
-                                      <input className="u-input-academic text-xs" placeholder="Phone (Optional)" value={comp.phone} onChange={e => handleCompanionChange(index, "phone", e.target.value)} />
-                                    </div>
+                                    <div className="col-span-2 sm:col-span-1"><input className="u-input-academic text-xs" placeholder="Full Name" value={comp.name} onChange={e => handleCompanionChange(index, "name", e.target.value)} required /></div>
+                                    <div className="col-span-2 sm:col-span-1"><input className="u-input-academic text-xs" placeholder="Relation" value={comp.relation} onChange={e => handleCompanionChange(index, "relation", e.target.value)} /></div>
                                   </div>
                                 </div>
                               ))}
@@ -1174,17 +961,13 @@
                         ) : (
                           <>
                             <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl mt-2">
-                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <span>💳</span> Payment Account Details
-                                </p>
+                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2"><span>💳</span> Payment Account Details</p>
                                 <div className="text-xs text-gray-600 space-y-1.5">
                                     <p><span className="font-bold text-gray-800">Bank Name:</span> BPI (Bank of the Philippine Islands)</p>
                                     <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
                                     <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
                                 </div>
-                                <p className="text-[9px] text-gray-400 mt-3 italic leading-relaxed">
-                                    Please settle your registration fee via bank transfer before proceeding.
-                                </p>
+                                <p className="text-[9px] text-gray-400 mt-3 italic leading-relaxed">Please settle your registration fee via bank transfer before proceeding.</p>
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
@@ -1195,7 +978,36 @@
                         
                         <div className="flex items-center justify-end pt-6 border-t border-gray-100 gap-2">
                             <button type="button" onClick={() => setCurrentRegStep(1)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
-                            <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Proceed</button>
+                            <button type="submit" className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* --- STEP 3: Final Review & Submit --- */}
+                    {currentRegStep === 3 && (
+                      <div className="animate-fade-in-up space-y-4">
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                           <h4 className="text-xs font-black text-brand uppercase tracking-widest mb-4">Review Your Submission</h4>
+                           <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs">
+                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Name</p><p className="font-bold text-gray-800 mt-1">{formData.firstName} {formData.lastName}</p></div>
+                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Role</p><p className="font-bold text-gray-800 mt-1 capitalize">{regRole}</p></div>
+                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Valid ID</p><p className="font-bold text-emerald-600 mt-1">{selectedFile ? '✅ Uploaded' : '❌ Missing'}</p></div>
+                              <div><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Payment</p><p className="font-bold text-emerald-600 mt-1">{paymentFile || isAUP ? '✅ Verified' : '❌ Missing'}</p></div>
+                           </div>
+                        </div>
+
+                        <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex items-start gap-3">
+                           <span className="text-xl">🛡️</span>
+                           <p className="text-xs text-blue-800 leading-relaxed">
+                              <strong>Admin Verification Required.</strong> By clicking submit, your credentials and payment will be securely sent to the university administration for manual verification. You will be notified once you are approved.
+                           </p>
+                        </div>
+
+                        <div className="flex items-center justify-end pt-6 border-t border-gray-100 gap-2">
+                            <button type="button" onClick={() => setCurrentRegStep(2)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
+                            <button type="submit" disabled={saving} className="grad-btn px-6 py-3 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden disabled:opacity-70">
+                                {saving ? "Processing..." : "Submit for Admin Review"}
+                            </button>
                         </div>
                       </div>
                     )}
@@ -1205,26 +1017,9 @@
           </div>
         )}
 
-        {/* Confirmation Modal */}
-        {confirmOpen && (
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div className="u-card rounded-[2rem] p-8 max-w-sm w-full text-center animate-fade-in-up">
-              <h3 className="text-xl font-black text-brand mb-2">Final Step</h3>
-              <p className="text-sm text-gray-500 mb-6 leading-relaxed">Confirming will submit your details and ID to the organizers for approval.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setConfirmOpen(false)} className="flex-1 py-3 rounded-xl bg-gray-100 font-extrabold text-gray-600 text-sm hover:bg-gray-200 transition-colors">Review</button>
-                <button onClick={handleFinalRegistration} disabled={saving} className="flex-1 py-3 rounded-xl grad-btn text-white font-extrabold text-sm u-sweep relative overflow-hidden disabled:opacity-70">
-                  {saving ? "Processing..." : "Confirm"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PREVIEW DETAILS MODAL */}
+        {/* DETAILS MODAL CALLED HERE */}
         {previewReg && (
             <RegistrationDetailsModal 
-                // Force it to use the liveReg data so the modal shows the admin Note
                 reg={myEvents.find(r => r.id === previewReg.id) || previewReg} 
                 event={events.find(e => String(e.id) === String(previewReg.eventId))}
                 rooms={localRooms}

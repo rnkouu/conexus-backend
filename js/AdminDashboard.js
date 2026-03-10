@@ -496,7 +496,6 @@
     const companionList = Array.isArray(reg.companions) ? reg.companions : (typeof reg.companions === 'string' ? JSON.parse(reg.companions) : []);
     const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId}` : null;
     const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath}` : null;
-    // NEW: URLs for presenter files
     const presentationUrl = reg.presentationPath ? `https://conexus-backend-production.up.railway.app/${reg.presentationPath}` : null;
     const videoUrl = reg.videoPath ? `https://conexus-backend-production.up.railway.app/${reg.videoPath}` : null;
 
@@ -507,7 +506,6 @@
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="text-2xl font-black text-brand">Registration Detail</h3>
-                {/* NEW: Role Badge */}
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${reg.regRole === 'presenter' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
                   {reg.regRole}
                 </span>
@@ -517,6 +515,17 @@
             <button onClick={onClose} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">✕</button>
           </div>
           
+          {/* --- NEW ADMIN VERIFICATION BANNER --- */}
+          {reg.status === 'For approval' && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 flex items-start gap-4">
+                  <div className="text-2xl">🛡️</div>
+                  <div>
+                      <h4 className="text-xs font-black text-amber-800 uppercase tracking-widest mb-1">Step 3: Admin Verification Required</h4>
+                      <p className="text-xs text-amber-900 leading-relaxed">The user has completed Step 1 (Credentials) and Step 2 (Payment). Please manually verify the uploaded documents below before clicking Approve.</p>
+                  </div>
+              </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="space-y-6">
                 <div className="space-y-2">
@@ -539,7 +548,6 @@
                     </div>
                 </div>
                 
-                {/* NEW: Presenter Files */}
                 {reg.regRole === 'presenter' && (
                   <div className="space-y-2 pt-4 bg-amber-50/30 p-4 rounded-xl border border-amber-100">
                       <h4 className="text-[11px] font-black text-amber-800 uppercase tracking-widest mb-3">Presenter Materials</h4>
