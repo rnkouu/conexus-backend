@@ -569,6 +569,9 @@
           payload.append('gender', formData.gender);
           payload.append('age', formData.age);
           payload.append('contact_number', formData.contact);
+          
+          // --> MISSING LINE ADDED HERE <--
+          payload.append('university', formData.university); 
 
           const token = localStorage.getItem('conexus_token'); 
 
