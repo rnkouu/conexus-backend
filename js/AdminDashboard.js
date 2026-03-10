@@ -495,17 +495,15 @@
     if (!reg) return null;
     
     const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
-    const isOnline = String(reg.mode || '').toLowerCase() === 'online';
     const isAUP = String(reg.university || '').toLowerCase().includes('aup');
 
-    // These flags determine which step the user is currently on
-    // status: 'For approval' (Step 1 Pending) -> 'Approved' (Step 1 Done)
-    // paper_status: 'accepted' (Step 2 Done)
-    // payment_status: 'Approved' (Step 3 Done)
-    // files_status: 'Approved' (Step 4 Done)
+    // Updated Flags: Step 1 is done if it's 'Step 1 Approved' OR fully 'Approved'
+    const step1Done = reg.status === 'Step 1 Approved' || reg.status === 'Approved';
     
-    const step1Done = reg.status === 'Approved';
-    const step2Done = reg.paper_status === 'accepted'; // Matches OJS logic
+    // Step 2 logic: Does a paper exist? (Check against presentationPath or a paper table)
+    const hasPaperSubmitted = !!reg.presentationPath; 
+    const step2Done = reg.paper_status === 'accepted'; 
+    
     const step3Done = reg.payment_status === 'Approved' || isAUP;
     const step4Done = reg.files_status === 'Approved';
 
@@ -580,16 +578,26 @@
 </div>
 
                 {/* STEP 2 SECTION (PRESENTER ONLY) */}
-                {isPresenter && (
-                    <div className={`space-y-3 ${currentStep !== 2 ? 'opacity-50' : ''}`}>
-                        <div className="flex justify-between items-center border-b pb-2">
-                            <h4 className="text-[10px] font-black uppercase text-brand">Step 2: OJS Paper Review</h4>
-                            {currentStep === 2 && <button onClick={() => onApproveStep(reg.id, 2)} className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold">Accept Paper (Step 2)</button>}
-                            {currentStep > 2 && <span className="text-emerald-500 text-[10px] font-bold">✅ ACCEPTED</span>}
-                        </div>
-                        <p className="text-[11px] text-gray-500">Check the OJS Dashboard. If paper is ready, approve here to unlock Step 3 for the user.</p>
-                    </div>
-                )}
+{isPresenter && (
+    <div className={`space-y-3 ${currentStep !== 2 ? 'opacity-50' : ''}`}>
+        <div className="flex justify-between items-center border-b pb-2">
+            <h4 className="text-[10px] font-black uppercase text-brand">Step 2: OJS Paper Review</h4>
+            {currentStep === 2 && (
+                <button 
+                    disabled={!hasPaperSubmitted}
+                    onClick={() => onApproveStep(reg.id, 2)} 
+                    className={`px-4 py-1 rounded-lg text-white text-[10px] font-bold ${!hasPaperSubmitted ? 'bg-gray-400 cursor-not-allowed' : 'grad-btn'}`}
+                >
+                    {hasPaperSubmitted ? "Accept Paper (Step 2)" : "Waiting for Submission"}
+                </button>
+            )}
+            {currentStep > 2 && <span className="text-emerald-500 text-[10px] font-bold">✅ ACCEPTED</span>}
+        </div>
+        {!hasPaperSubmitted && currentStep === 2 && (
+            <p className="text-[10px] text-red-500 font-bold">User has not uploaded a paper yet.</p>
+        )}
+    </div>
+)}
 
                 {/* STEP 3 SECTION */}
                 <div className={`space-y-3 ${currentStep !== 3 ? 'opacity-50' : ''}`}>
@@ -2283,11 +2291,11 @@ const handleApproveStep = async (regId, stepNumber) => {
     try {
         let payload = {};
         
-        // Define which database column to update based on the step button clicked
-        if (stepNumber === 1) payload = { status: "Approved" };
+        // Use transitional statuses to avoid marking the whole registration as 'Final'
+        if (stepNumber === 1) payload = { status: "Step 1 Approved" }; 
         if (stepNumber === 2) payload = { paper_status: "accepted" };
         if (stepNumber === 3) payload = { payment_status: "Approved" };
-        if (stepNumber === 4) payload = { files_status: "Approved" };
+        if (stepNumber === 4) payload = { status: "Approved", files_status: "Approved" }; // Final Step sets global status
 
         const res = await fetch(`${API_BASE}/registrations/${regId}/steps`, {
             method: 'PUT',
@@ -2297,9 +2305,7 @@ const handleApproveStep = async (regId, stepNumber) => {
 
         if (res.ok) {
             window.Swal.fire('Success', `Step ${stepNumber} Approved!`, 'success');
-            loadData(); // Refresh to update the UI
-            // Close the preview so the user sees the updated list, 
-            // or keep it open by removing the line below
+            loadData(); 
             setPreviewTarget(null); 
         }
     } catch (err) {
