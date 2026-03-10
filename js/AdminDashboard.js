@@ -491,112 +491,119 @@
     );
   }
 
-  function RegistrationPreviewModal({ reg, onClose }) {
+  function RegistrationPreviewModal({ reg, onClose, onApproveStep }) {
     if (!reg) return null;
-    const companionList = Array.isArray(reg.companions) ? reg.companions : (typeof reg.companions === 'string' ? JSON.parse(reg.companions) : []);
+    
+    const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
+    const isOnline = String(reg.mode || '').toLowerCase() === 'online';
+    const isAUP = String(reg.university || '').toLowerCase().includes('aup');
+
+    // These flags determine which step the user is currently on
+    // status: 'For approval' (Step 1 Pending) -> 'Approved' (Step 1 Done)
+    // paper_status: 'accepted' (Step 2 Done)
+    // payment_status: 'Approved' (Step 3 Done)
+    // files_status: 'Approved' (Step 4 Done)
+    
+    const step1Done = reg.status === 'Approved';
+    const step2Done = reg.paper_status === 'accepted'; // Matches OJS logic
+    const step3Done = reg.payment_status === 'Approved' || isAUP;
+    const step4Done = reg.files_status === 'Approved';
+
+    let currentStep = 1;
+    if (step1Done) currentStep = 2;
+    if (step2Done) currentStep = 3;
+    if (step3Done) currentStep = 4;
+    if (step4Done) currentStep = 5;
+
+    const stepperSteps = isPresenter 
+        ? [ { s: 1, l: 'Details' }, { s: 2, l: 'Paper' }, { s: 3, l: 'Payment' }, { s: 4, l: 'Files' } ]
+        : [ { s: 1, l: 'Details' }, { s: 2, l: 'Payment' } ];
+
     const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId}` : null;
     const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath}` : null;
     const presentationUrl = reg.presentationPath ? `https://conexus-backend-production.up.railway.app/${reg.presentationPath}` : null;
     const videoUrl = reg.videoPath ? `https://conexus-backend-production.up.railway.app/${reg.videoPath}` : null;
 
     return (
-      <ModalWrapper onClose={onClose}>
-        <div className="p-8">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-2xl font-black text-brand">Registration Detail</h3>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${reg.regRole === 'presenter' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
-                  {reg.regRole}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500">{reg.eventTitle}</p>
+        <ModalWrapper onClose={onClose}>
+            <div className="bg-[var(--u-navy)] p-6 text-white relative">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--u-gold)]"></div>
+                <h3 className="text-xl font-black">Reviewing: {reg.fullName}</h3>
+                <p className="text-xs opacity-70">{reg.eventTitle}</p>
             </div>
-            <button onClick={onClose} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">✕</button>
-          </div>
-          
-          {/* --- NEW ADMIN VERIFICATION BANNER --- */}
-          {reg.status === 'For approval' && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 flex items-start gap-4">
-                  <div className="text-2xl">🛡️</div>
-                  <div>
-                      <h4 className="text-xs font-black text-amber-800 uppercase tracking-widest mb-1">Step 3: Admin Verification Required</h4>
-                      <p className="text-xs text-amber-900 leading-relaxed">The user has completed Step 1 (Credentials) and Step 2 (Payment). Please manually verify the uploaded documents below before clicking Approve.</p>
-                  </div>
-              </div>
-          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div className="space-y-6">
-                <div className="space-y-2">
-                    <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Primary {reg.regRole === 'presenter' ? 'Presenter' : 'Participant'}</h4>
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Full Name</p>
-                        <p className="text-sm font-bold text-gray-800">{reg.firstName} {reg.middleName} {reg.lastName}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Demographics</p>
-                        <p className="text-sm font-medium text-gray-600">{reg.gender || "N/A"} • {reg.age ? `${reg.age} yrs old` : "N/A"}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Contact & Institution</p>
-                        <p className="text-sm font-medium text-gray-600">{reg.contactNumber || "N/A"} • {reg.university || "N/A"}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Email</p>
-                        <p className="text-sm font-medium text-gray-600">{reg.userEmail}</p>
-                    </div>
-                </div>
-                
-                {reg.regRole === 'presenter' && (
-                  <div className="space-y-2 pt-4 bg-amber-50/30 p-4 rounded-xl border border-amber-100">
-                      <h4 className="text-[11px] font-black text-amber-800 uppercase tracking-widest mb-3">Presenter Materials</h4>
-                      <div className="flex flex-col gap-3">
-                        {presentationUrl ? <a href={presentationUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand bg-white px-3 py-2 rounded-lg border border-amber-200 hover:bg-amber-50 flex items-center gap-2 shadow-sm">📄 Download Deck</a> : <p className="text-xs text-gray-400 italic">No deck uploaded</p>}
-                        {videoUrl ? <a href={videoUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand bg-white px-3 py-2 rounded-lg border border-amber-200 hover:bg-amber-50 flex items-center gap-2 shadow-sm">🎥 View Video</a> : <p className="text-xs text-gray-400 italic">No video uploaded</p>}
-                      </div>
-                  </div>
-                )}
+            {/* --- THE STEPPER --- */}
+            <div className="p-6 bg-gray-50 border-b flex justify-between items-center px-12">
+                {stepperSteps.map((step, i) => (
+                    <React.Fragment key={step.s}>
+                        <div className="flex flex-col items-center relative z-10">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${currentStep > step.s ? 'bg-brand border-brand text-white' : currentStep === step.s ? 'border-brand text-brand bg-white' : 'border-gray-200 text-gray-300 bg-white'}`}>
+                                {currentStep > step.s ? '✓' : step.s}
+                            </div>
+                            <span className="text-[9px] font-black uppercase mt-1 text-gray-400">{step.l}</span>
+                        </div>
+                        {i < stepperSteps.length - 1 && <div className={`flex-1 h-0.5 mx-2 ${currentStep > step.s ? 'bg-brand' : 'bg-gray-200'}`}></div>}
+                    </React.Fragment>
+                ))}
+            </div>
 
-                <div className="space-y-2 pt-4">
-                    <h4 className="text-[11px] font-black text-brand uppercase tracking-widest border-b pb-1">Attachments</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Valid ID</p>
-                            {fileUrl ? (
-                                <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
-                                    <img src={fileUrl} alt="ID" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
-                                    <a href={fileUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
-                                </div>
-                            ) : <p className="text-xs text-gray-400 italic">No ID uploaded.</p>}
-                        </div>
-                        
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Proof of Payment</p>
-                            {paymentUrl ? (
-                                <div className="group relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
-                                    <img src={paymentUrl} alt="Payment" className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none'}}/>
-                                    <a href={paymentUrl} target="_blank" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-all">View</a>
-                                </div>
-                            ) : <p className="text-xs text-gray-400 italic">No payment uploaded.</p>}
-                        </div>
+            <div className="p-8 space-y-8 max-h-[50vh] overflow-y-auto">
+                {/* STEP 1 SECTION */}
+                <div className={`space-y-3 ${currentStep !== 1 ? 'opacity-50' : ''}`}>
+                    <div className="flex justify-between items-center border-b pb-2">
+                        <h4 className="text-[10px] font-black uppercase text-brand">Step 1: Identity Verification</h4>
+                        {currentStep === 1 && <button onClick={() => onApproveStep(reg.id, 1)} className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold">Approve Step 1</button>}
+                        {currentStep > 1 && <span className="text-emerald-500 text-[10px] font-bold">✅ VERIFIED</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                        <p><b>Institution:</b> {reg.university}</p>
+                        <p><b>ID:</b> {fileUrl ? <a href={fileUrl} target="_blank" className="text-brand underline font-bold">View Image</a> : "No Upload"}</p>
                     </div>
                 </div>
 
-                {(reg.adminNote || reg.admin_note) && (
-                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl mt-4">
-                        <p className="text-[10px] font-bold text-red-600 uppercase">Admin Note</p>
-                        <p className="text-xs text-red-800 mt-1">{reg.adminNote || reg.admin_note}</p>
+                {/* STEP 2 SECTION (PRESENTER ONLY) */}
+                {isPresenter && (
+                    <div className={`space-y-3 ${currentStep !== 2 ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-center border-b pb-2">
+                            <h4 className="text-[10px] font-black uppercase text-brand">Step 2: OJS Paper Review</h4>
+                            {currentStep === 2 && <button onClick={() => onApproveStep(reg.id, 2)} className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold">Accept Paper (Step 2)</button>}
+                            {currentStep > 2 && <span className="text-emerald-500 text-[10px] font-bold">✅ ACCEPTED</span>}
+                        </div>
+                        <p className="text-[11px] text-gray-500">Check the OJS Dashboard. If paper is ready, approve here to unlock Step 3 for the user.</p>
+                    </div>
+                )}
+
+                {/* STEP 3 SECTION */}
+                <div className={`space-y-3 ${currentStep !== 3 ? 'opacity-50' : ''}`}>
+                    <div className="flex justify-between items-center border-b pb-2">
+                        <h4 className="text-[10px] font-black uppercase text-brand">Step 3: Payment Verification</h4>
+                        {currentStep === 3 && <button onClick={() => onApproveStep(reg.id, 3)} className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold">Approve Payment (Step 3)</button>}
+                        {currentStep > 3 && <span className="text-emerald-500 text-[10px] font-bold">✅ PAID</span>}
+                    </div>
+                    {paymentUrl ? <a href={paymentUrl} target="_blank" className="text-xs text-brand font-bold underline">View Proof of Payment</a> : <p className="text-[11px] italic">No payment uploaded yet.</p>}
+                </div>
+
+                {/* STEP 4 SECTION (PRESENTER ONLY) */}
+                {isPresenter && (
+                    <div className={`space-y-3 ${currentStep !== 4 ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-center border-b pb-2">
+                            <h4 className="text-[10px] font-black uppercase text-brand">Step 4: Final Presentation Files</h4>
+                            {currentStep === 4 && <button onClick={() => onApproveStep(reg.id, 4)} className="grad-btn px-4 py-1 rounded-lg text-white text-[10px] font-bold">Final Approval (Step 4)</button>}
+                            {currentStep > 4 && <span className="text-emerald-500 text-[10px] font-bold">✅ COMPLETE</span>}
+                        </div>
+                        <div className="flex gap-4">
+                            {presentationUrl && <a href={presentationUrl} target="_blank" className="text-[11px] text-brand underline font-bold">View PPT/PDF</a>}
+                            {isOnline && videoUrl && <a href={videoUrl} target="_blank" className="text-[11px] text-brand underline font-bold">View Video</a>}
+                        </div>
                     </div>
                 )}
             </div>
-            <div className="space-y-4"><h4 className="text-[11px] font-black text-amber-600 uppercase tracking-widest border-b pb-1">Associates ({companionList.length})</h4><div className="max-h-[30vh] overflow-y-auto space-y-4 pr-2 scrollbar-hide">{companionList.length === 0 ? (<p className="text-xs text-gray-400 italic py-4">No associates registered.</p>) : companionList.map((c, idx) => (<div key={idx} className="bg-soft/40 p-3 rounded-xl border border-blue-50"><div className="text-sm font-bold text-gray-800">{c.name}</div><div className="text-[10px] font-bold text-amber-600 uppercase">{c.relation}</div></div>))}</div></div>
-          </div>
-          <button onClick={onClose} className="w-full py-4 rounded-2xl bg-brand text-white font-bold hover:bg-black transition-all shadow-xl">Close</button>
-        </div>
-      </ModalWrapper>
+            <div className="p-6 border-t bg-gray-50 text-right">
+                <button onClick={onClose} className="px-6 py-2 rounded-xl border font-bold text-gray-500 text-sm">Close</button>
+            </div>
+        </ModalWrapper>
     );
-  }
+}
 
   function NfcModal({ isOpen, targetReg, onClose, onSubmit }) {
     if (!isOpen) return null;
@@ -2252,6 +2259,35 @@ Notes / Flags
       });
       loadData();
     };
+    // Inside function AdminDashboard(props) { ...
+
+const handleApproveStep = async (regId, stepNumber) => {
+    try {
+        let payload = {};
+        
+        // Define which database column to update based on the step button clicked
+        if (stepNumber === 1) payload = { status: "Approved" };
+        if (stepNumber === 2) payload = { paper_status: "accepted" };
+        if (stepNumber === 3) payload = { payment_status: "Approved" };
+        if (stepNumber === 4) payload = { files_status: "Approved" };
+
+        const res = await fetch(`${API_BASE}/registrations/${regId}/steps`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            window.Swal.fire('Success', `Step ${stepNumber} Approved!`, 'success');
+            loadData(); // Refresh to update the UI
+            // Close the preview so the user sees the updated list, 
+            // or keep it open by removing the line below
+            setPreviewTarget(null); 
+        }
+    } catch (err) {
+        window.Swal.fire('Error', 'Failed to update step.', 'error');
+    }
+};
 
     const handleRevokeConfirm = async (note) => {
         if (revokeTarget) {
@@ -2581,7 +2617,7 @@ Notes / Flags
         <NfcModal isOpen={nfcModalOpen} targetReg={nfcTargetReg} onClose={() => setNfcModalOpen(false)} onSubmit={handleNfcSubmit} />
         <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, "Approved", id)} />
         <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onEmail={handleSingleEmail} onPrint={issueCertNow} />
-        <RegistrationPreviewModal reg={previewTarget} onClose={() => setPreviewTarget(null)} />
+        <RegistrationPreviewModal reg={previewTarget} onClose={() => setPreviewTarget(null)} onApproveStep={handleApproveStep} />
         
         {/* REVOKE / REJECT MODAL */}
         <RevokeModal 
