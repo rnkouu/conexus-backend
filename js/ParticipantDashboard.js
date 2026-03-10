@@ -709,11 +709,12 @@
                   
                   <form onSubmit={handlePaperSubmit} className="space-y-4">
                      <div>
+                        {/* --- CHICKEN AND EGG FIX APPLIED HERE --- */}
                         <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Link to Event</label>
                         <select className="u-input-academic" value={paperForm.eventId} onChange={e => setPaperForm(p => ({...p, eventId: e.target.value}))}>
-                           <option value="">-- Select Event --</option>
-                           {myEvents.filter(r => r.status === "Approved").map(r => (
-                               <option key={r.eventId} value={r.eventId}>{r.eventTitle}</option>
+                           <option value="">-- Select Upcoming Event --</option>
+                           {upcomingEvents.map(e => (
+                               <option key={e.id} value={e.id}>{e.title}</option>
                            ))}
                         </select>
                      </div>
