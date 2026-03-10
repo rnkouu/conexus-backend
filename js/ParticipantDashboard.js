@@ -519,9 +519,10 @@
         printWindow.document.close();
     };
 
+    // --- FIX: RESTORED 4-STEP VISUAL FOR PRESENTER, 2-STEP FOR PARTICIPANT ---
     const stepperSteps = regRole === 'participant' 
         ? [ { step: 1, label: 'Details' }, { step: 2, label: 'Payment' } ]
-        : [ { step: 1, label: 'Submit Details' } ];
+        : [ { step: 1, label: 'Details' }, { step: 2, label: 'Paper' }, { step: 3, label: 'Payment' }, { step: 4, label: 'Files' } ];
 
     return (
       <section className="relative px-4 py-10 max-w-7xl mx-auto animate-fade-in-up">
