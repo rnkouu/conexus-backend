@@ -2766,7 +2766,7 @@ Notes / Flags
         <NfcModal isOpen={nfcModalOpen} targetReg={nfcTargetReg} onClose={() => setNfcModalOpen(false)} onSubmit={handleNfcSubmit} />
         <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, "Approved", id)} />
         <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onEmail={handleSingleEmail} onPrint={issueCertNow} />
-        <RegistrationPreviewModal reg={previewTarget} submissions={submissions} onClose={() => setPreviewTarget(null)} onApproveStep={handleApproveStep} />
+        <RegistrationPreviewModal reg={registrations.find(r => r.id === previewTarget?.id) || previewTarget} submissions={submissions} onClose={() => setPreviewTarget(null)} onApproveStep={handleApproveStep} />
         
         {/* REVOKE / REJECT MODAL */}
         <RevokeModal 
