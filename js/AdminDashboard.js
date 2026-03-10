@@ -491,19 +491,25 @@
     );
   }
 
-  function RegistrationPreviewModal({ reg, onClose, onApproveStep }) {
+  function RegistrationPreviewModal({ reg, submissions = [], onClose, onApproveStep }) {
     if (!reg) return null;
     
     const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
     const isAUP = String(reg.university || '').toLowerCase().includes('aup');
     const isOnline = String(reg.mode || '').toLowerCase() !== 'on-site';
 
-    // Updated Flags: Step 1 is done if it's 'Step 1 Approved' OR fully 'Approved'
     const step1Done = reg.status === 'Step 1 Approved' || reg.status === 'Approved';
     
-    // Step 2 logic: Does a paper exist? (Check against presentationPath or a paper table)
-    const hasPaperSubmitted = !!reg.presentationPath; 
-    const step2Done = reg.paper_status === 'accepted'; 
+    // --- THIS IS THE FIX ---
+    // It actually looks at the submissions data to see if this user submitted a paper for this event
+    const userSubmission = submissions.find(s => 
+        String(s.event_id || s.eventId) === String(reg.eventId) && 
+        String(s.user_email || s.userEmail).toLowerCase() === String(reg.userEmail).toLowerCase()
+    );
+    
+    const hasPaperSubmitted = !!userSubmission; 
+    // Step 2 is done if the paper is accepted in OJS (Submissions Tab) OR manually approved in this modal
+    const step2Done = (userSubmission && userSubmission.status === 'accepted') || reg.paper_status === 'accepted'; 
     
     const step3Done = reg.payment_status === 'Approved' || isAUP;
     const step4Done = reg.files_status === 'Approved';
@@ -2076,7 +2082,8 @@ Notes / Flags
     const [dorms, setDorms] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [portals, setPortals] = useState([]);
-    const [logs, setLogs] = useState([]);
+   const [logs, setLogs] = useState([]);
+    const [submissions, setSubmissions] = useState([]); // <-- NEW
 
     const [createEventOpen, setCreateEventOpen] = useState(false);
     const [createEventSaving, setCreateEventSaving] = useState(false);
@@ -2107,14 +2114,16 @@ Notes / Flags
         fetch(`${API_BASE}/portals`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []), 
         fetch(`${API_BASE}/dorms`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []), 
         fetch(`${API_BASE}/rooms`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []), 
-        fetch(`${API_BASE}/attendance_logs`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) 
-      ]).then(([ev, reg, por, dor, roo, lgs]) => {
+        fetch(`${API_BASE}/attendance_logs`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${API_BASE}/submissions`, { headers: getAuthHeaders() }).then(r => r.ok ? r.json() : []).catch(() => []) // <-- NEW
+      ]).then(([ev, reg, por, dor, roo, lgs, subs]) => {
         setEvents(Array.isArray(ev) ? ev.map(normalizeEvent) : []);
         setRegistrations(Array.isArray(reg) ? reg.map(normalizeRegistration) : []);
         setPortals(Array.isArray(por) ? por.map(normalizePortal) : []);
         setDorms(Array.isArray(dor) ? dor.map(normalizeDorm) : []);
         setRooms(Array.isArray(roo) ? roo.map(normalizeRoom) : []);
         setLogs(Array.isArray(lgs) ? lgs : []);
+        setSubmissions(Array.isArray(subs) ? subs : []); // <-- NEW
       });
     };
 
@@ -2646,7 +2655,7 @@ const handleApproveStep = async (regId, stepNumber) => {
         <NfcModal isOpen={nfcModalOpen} targetReg={nfcTargetReg} onClose={() => setNfcModalOpen(false)} onSubmit={handleNfcSubmit} />
         <AssignRoomModal isOpen={assignModalOpen} targetReg={assignTargetReg} dorms={dorms} rooms={rooms} registrations={registrations} onClose={() => setAssignModalOpen(false)} onAssign={(id) => handleUpdateStatus(assignTargetReg.id, "Approved", id)} />
         <CertificateDrawer isOpen={certDrawerOpen} target={certTarget} html={getCertHtml()} isSending={certEmailSending} status={certEmailStatus} onClose={() => setCertDrawerOpen(false)} onEmail={handleSingleEmail} onPrint={issueCertNow} />
-        <RegistrationPreviewModal reg={previewTarget} onClose={() => setPreviewTarget(null)} onApproveStep={handleApproveStep} />
+        <RegistrationPreviewModal reg={previewTarget} submissions={submissions} onClose={() => setPreviewTarget(null)} onApproveStep={handleApproveStep} />
         
         {/* REVOKE / REJECT MODAL */}
         <RevokeModal 

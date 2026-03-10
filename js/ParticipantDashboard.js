@@ -76,6 +76,8 @@
         .reg-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border-color: var(--u-blue); }
         .status-pill { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 6px 12px; border-radius: 99px; letter-spacing: 0.05em; }
         .status-Approved { background: #ecfdf5; color: #065f46; border: 1px solid #10b98133; }
+        .status-Step-1-Approved { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .status-For-approval { background: #fffbeb; color: #92400e; border: 1px solid #f59e0b33; }
         .status-Pending { background: #fffbeb; color: #92400e; border: 1px solid #f59e0b33; }
         .status-Rejected { background: #fef2f2; color: #991b1b; border: 1px solid #ef444433; }
       `;
@@ -136,7 +138,12 @@
                  </div>
                  <div className="text-right shrink-0">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
-                    <span className={classNames("badge-academic", reg.status === "Approved" ? "bg-emerald-100 text-emerald-700" : reg.status === "Rejected" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700")}>
+                    <span className={classNames("badge-academic", 
+                        reg.status === "Approved" ? "bg-emerald-100 text-emerald-700" : 
+                        reg.status === "Rejected" ? "bg-red-100 text-red-700" : 
+                        reg.status === "Step 1 Approved" ? "bg-blue-100 text-blue-700" :
+                        "bg-amber-100 text-amber-700"
+                    )}>
                         {reg.status || "Pending"}
                     </span>
                  </div>
@@ -322,7 +329,12 @@
         };
     });
 
-    const approvedEventsForPaper = myEvents.filter(e => e.status === 'Approved' && String(e.regRole).toLowerCase() === 'presenter');
+    // --- FIX: Submit Paper Dropdown matches new 'Step 1 Approved' Status ---
+    const approvedEventsForPaper = myEvents.filter(e => 
+        (e.status === 'Approved' || e.status === 'Step 1 Approved') && 
+        String(e.regRole).toLowerCase() === 'presenter'
+    );
+
     const mySubmissions = submissions.filter((s) => String(s.userEmail || "").toLowerCase() === String(user?.email || "").toLowerCase());
     const visibleSubmissions = statusFilter === "all" ? mySubmissions : mySubmissions.filter((s) => (s.status || "under_review") === statusFilter);
 
@@ -658,6 +670,7 @@
                 myEvents.map((reg, idx) => {
                   const status = reg.status || "Pending";
                   const isApproved = status === "Approved";
+                  const isStep1Approved = status === "Step 1 Approved" || isApproved;
                   const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
                   
                   const paperForThisEvent = submissions.find(s => String(s.eventId) === String(reg.eventId || reg.event_id) && String(s.userEmail).toLowerCase() === String(user?.email).toLowerCase());
@@ -677,7 +690,7 @@
                         )}>
                           {isApproved ? "✅" : status === "Rejected" ? "❌" : "⏳"}
                         </div>
-                        <span className={classNames("status-pill", `status-${status}`)}>
+                        <span className={classNames("status-pill", `status-${status.replace(/\s+/g, '-')}`)}>
                           {status}
                         </span>
                       </div>
@@ -696,7 +709,112 @@
                         </div>
                       </div>
 
-                      <div className="mt-auto pt-6 border-t border-gray-50 flex flex-wrap gap-2">
+                      {/* --- NEW: DETAILED PRESENTER INSTRUCTIONS --- */}
+                      {isPresenter && (
+                          <div className="mt-4 p-4 rounded-xl border bg-gray-50 border-gray-100 space-y-3">
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-200 pb-2">Presenter Progress</p>
+
+                              {/* GATE 1: Step 1 Pending Check */}
+                              {!isStep1Approved && status !== 'Rejected' && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="text-xl">⏳</div>
+                                      <div>
+                                          <p className="text-xs font-bold text-amber-700">Step 1: Pending Admin Approval</p>
+                                          <p className="text-[10px] text-amber-600 mt-0.5 leading-relaxed">
+                                              <b>Instruction:</b> Please wait for the admin to approve your Step 1 (Identity & Details) before proceeding to Step 2 (Submit Paper).
+                                          </p>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* GATE 2: Step 2 Unlocked (Submit Paper) */}
+                              {isStep1Approved && !paperForThisEvent && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="text-xl">📝</div>
+                                      <div className="flex-1">
+                                          <p className="text-xs font-bold text-blue-700">Step 1 Approved! Action Required</p>
+                                          <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed mb-2">
+                                              <b>Instruction:</b> You can now submit your manuscript for OJS review.
+                                          </p>
+                                          <button onClick={() => { setTab("submit"); setPaperForm(p => ({ ...p, eventId: String(reg.eventId || reg.event_id) })); }} className="w-full py-2 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">
+                                              Go to Submit Paper (Step 2)
+                                          </button>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* GATE 2 Check: Paper Submitted but Not Accepted */}
+                              {paperForThisEvent && !isPaperAccepted && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="text-xl">⏳</div>
+                                      <div>
+                                          <p className="text-xs font-bold text-amber-700">Step 2: Paper Under Review</p>
+                                          <p className="text-[10px] text-amber-600 mt-0.5 leading-relaxed">
+                                              <b>Instruction:</b> Your paper is being reviewed. Please wait for the admin to approve Step 2 before proceeding to Step 3 (Payment).
+                                          </p>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* GATE 3: Step 3 Unlocked (Upload Payment) - Skips if AUP */}
+                              {isPaperAccepted && !hasPayment && !isAUP && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="text-xl">💳</div>
+                                      <div className="flex-1">
+                                          <p className="text-xs font-bold text-blue-700">Step 2 Accepted! Action Required</p>
+                                          <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed mb-2">
+                                              <b>Instruction:</b> Your paper has been accepted. Please upload your proof of payment.
+                                          </p>
+                                          <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="w-full py-2 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">
+                                              Upload Payment (Step 3)
+                                          </button>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* GATE 3 Check: Payment Uploaded but Not Approved */}
+                              {isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="text-xl">⏳</div>
+                                      <div>
+                                          <p className="text-xs font-bold text-amber-700">Step 3: Payment Verification Pending</p>
+                                          <p className="text-[10px] text-amber-600 mt-0.5 leading-relaxed">
+                                              <b>Instruction:</b> The admin is verifying your payment. Please wait for the admin to approve Step 3 before proceeding to Step 4 (Upload Presentation).
+                                          </p>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* GATE 4: Step 4 Unlocked (Upload Files) - Requires Payment Approved OR AUP */}
+                              {isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="text-xl">📁</div>
+                                      <div className="flex-1">
+                                          <p className="text-xs font-bold text-blue-700">Payment Verified! Action Required</p>
+                                          <p className="text-[10px] text-blue-600 mt-0.5 leading-relaxed mb-2">
+                                              <b>Instruction:</b> You are now cleared to upload your final presentation deck and video.
+                                          </p>
+                                          <button onClick={() => { setCompletingReg(reg); setCompletingStep(4); }} className="w-full py-2 rounded-lg bg-blue-600 text-white text-[10px] font-bold shadow-md hover:bg-blue-700 transition-colors">
+                                              Upload Final Files (Step 4)
+                                          </button>
+                                      </div>
+                                  </div>
+                              )}
+                              
+                              {/* FINISHED: Registration Fully Complete */}
+                              {hasPresentation && (
+                                  <div className="flex items-start gap-3">
+                                      <div className="text-xl">✅</div>
+                                      <div>
+                                          <p className="text-xs font-bold text-emerald-700">Registration Complete</p>
+                                          <p className="text-[10px] text-emerald-600 mt-0.5 leading-relaxed">All steps have been successfully completed. We look forward to your presentation!</p>
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+                      )}
+
+                      <div className="mt-auto pt-4 border-t border-gray-50 flex flex-wrap gap-2">
                         <button 
                           onClick={() => setPreviewReg(reg)}
                           className="flex-1 py-3 rounded-xl bg-gray-50 text-gray-600 text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-colors"
@@ -711,51 +829,6 @@
                           >
                             Invitation
                           </button>
-                        )}
-
-                        {isPresenter && (
-                            <>
-                                {/* GATE 1: Step 1 Pending Check */}
-                                {status === 'Pending' && (
-                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">⏳ Step 1 Pending Admin Approval</span>
-                                )}
-
-                                {/* GATE 2: Step 2 Unlocked (Submit Paper) */}
-                                {isApproved && !paperForThisEvent && (
-                                    <button onClick={() => { setTab("submit"); setPaperForm(p => ({ ...p, eventId: String(reg.eventId || reg.event_id) })); }} className="flex-1 py-3 rounded-xl border border-brand text-brand text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-colors">
-                                        Step 2: Submit Paper
-                                    </button>
-                                )}
-
-                                {/* GATE 2 Check: Paper Submitted but Not Accepted */}
-                                {paperForThisEvent && !isPaperAccepted && (
-                                    <span className="flex-1 py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100">⏳ Step 2 Pending Paper Acceptance</span>
-                                )}
-
-                                {/* GATE 3: Step 3 Unlocked (Upload Payment) - Skips if AUP */}
-                                {isPaperAccepted && !hasPayment && !isAUP && (
-                                    <button onClick={() => { setCompletingReg(reg); setCompletingStep(3); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-colors mt-1">
-                                        Step 3: Upload Payment
-                                    </button>
-                                )}
-
-                                {/* GATE 3 Check: Payment Uploaded but Not Approved */}
-                                {isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP && (
-                                    <span className="flex-1 min-w-[100%] py-3 text-center text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 rounded-xl border border-amber-100 mt-1">⏳ Step 3 Pending Payment Approval</span>
-                                )}
-
-                                {/* GATE 4: Step 4 Unlocked (Upload Files) - Requires Payment Approved OR AUP */}
-                                {isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation && (
-                                    <button onClick={() => { setCompletingReg(reg); setCompletingStep(4); }} className="flex-1 min-w-[100%] py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-colors mt-1">
-                                        Step 4: Upload Final Files
-                                    </button>
-                                )}
-                                
-                                {/* FINISHED: Registration Fully Complete */}
-                                {hasPresentation && (
-                                    <span className="flex-1 min-w-[100%] py-3 text-center text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 rounded-xl border border-emerald-100 mt-1">✅ Registration Complete</span>
-                                )}
-                            </>
                         )}
 
                         {isApproved && reg.certificate_issued_at && (
@@ -790,16 +863,32 @@
                           <span className="opacity-75">Example: Cruz_Juan_BusinessInModernEra.docx</span>
                       </p>
                   </div>
+
+                  {/* --- NEW: EXPLICIT EMPTY STATE INSTRUCTION BANNER --- */}
+                  {approvedEventsForPaper.length === 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 animate-fade-in-up">
+                          <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest mb-1">ℹ️ Step 2 Requirement</p>
+                          <p className="text-xs text-blue-900 leading-relaxed">
+                              You must wait for the Admin to approve your <b>Step 1 (Details & ID)</b> before your event will appear in the dropdown below.
+                          </p>
+                      </div>
+                  )}
                   
                   <form onSubmit={handlePaperSubmit} className="space-y-4">
                      <div>
                         {/* THE DROPDOWN NOW PROPERLY SHOWS APPROVED PRESENTER REGISTRATIONS ONLY */}
                         <label className="text-[11px] font-black uppercase text-gray-400 mb-1 block">Link to Event (Step 2)</label>
                         <select className="u-input-academic" value={paperForm.eventId} onChange={e => setPaperForm(p => ({...p, eventId: e.target.value}))} required>
-                           <option value="">-- Select Approved Event --</option>
-                           {approvedEventsForPaper.map(e => (
-                               <option key={e.id} value={e.eventId || e.event_id || e.id}>{e.eventTitle}</option>
-                           ))}
+                           {approvedEventsForPaper.length === 0 ? (
+                               <option value="">No approved events available. Wait for Admin to approve Step 1.</option>
+                           ) : (
+                               <>
+                                  <option value="">-- Select Approved Event --</option>
+                                  {approvedEventsForPaper.map(e => (
+                                      <option key={e.id} value={e.eventId || e.event_id || e.id}>{e.eventTitle}</option>
+                                  ))}
+                               </>
+                           )}
                         </select>
                      </div>
 
@@ -833,7 +922,7 @@
                         </label>
                      </div>
                      
-                     <button type="submit" disabled={paperSaving} className="grad-btn w-full py-3 rounded-xl text-white font-extrabold u-sweep relative overflow-hidden mt-4">
+                     <button type="submit" disabled={paperSaving || approvedEventsForPaper.length === 0} className="grad-btn w-full py-3 rounded-xl text-white font-extrabold u-sweep relative overflow-hidden mt-4 disabled:opacity-50 disabled:cursor-not-allowed">
                        {paperSaving ? "Uploading Manuscript..." : "Submit Paper"}
                      </button>
 
@@ -939,6 +1028,7 @@
                         <div className="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
                           <button type="button" onClick={() => setRegRole('participant')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'participant' ? 'bg-white shadow text-brand' : 'text-gray-500 hover:text-gray-700'}`}>Participant</button>
                           
+                          {/* Presenter is now freely selectable to start Step 1 */}
                           <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
                         </div>
 
