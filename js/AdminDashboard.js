@@ -1389,14 +1389,14 @@
                                 Preview
                               </button>
                               
-                              {/* RESTORED: Approve and Reject Buttons */}
-                              {!isApproved && !isRejected && (
+                              {/* QUICK ACTIONS */}
+                              {r.status === 'For approval' && (
                                   <>
                                       <button 
-                                          onClick={() => onUpdateStatus(r.id, "Approved", r.roomId)} 
-                                          className="h-8 px-4 flex items-center justify-center rounded-lg bg-emerald-500 text-white text-xs font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+                                          onClick={() => onUpdateStatus(r.id, "Step 1 Approved", r.roomId)} 
+                                          className="h-8 px-4 flex items-center justify-center rounded-lg bg-blue-500 text-white text-xs font-medium hover:bg-blue-600 transition-colors shadow-sm"
                                       >
-                                          Approve
+                                          Approve Step 1
                                       </button>
 
                                       <button 
@@ -1408,8 +1408,7 @@
                                   </>
                               )}
 
-                              {/* RESTORED: Revoke Button */}
-                              {isApproved && (
+                              {r.status !== 'For approval' && r.status !== 'Rejected' && (
                                   <button 
                                       onClick={() => onRevoke(r)} 
                                       className="h-8 px-4 flex items-center justify-center rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors shadow-sm"
