@@ -316,14 +316,14 @@ app.get('/api/registrations', verifyToken, (req, res) => {
 
 app.post('/api/register', verifyToken, upload.fields([
     { name: 'valid_id', maxCount: 1 },
-    { name: 'proof_of_payment', maxCount: 1 }, // NEW
+    { name: 'proof_of_payment', maxCount: 1 }, 
     { name: 'presentation_file', maxCount: 1 },
     { name: 'video_file', maxCount: 1 }
 ]), (req, res) => {
     let { user_email, event_id, companions, reg_role, first_name, last_name, middle_name, gender, age, contact_number } = req.body;
     
     const valid_id_path = req.files && req.files['valid_id'] ? req.files['valid_id'][0].path : null;
-    const proof_of_payment_path = req.files && req.files['proof_of_payment'] ? req.files['proof_of_payment'][0].path : null; // NEW
+    const proof_of_payment_path = req.files && req.files['proof_of_payment'] ? req.files['proof_of_payment'][0].path : null; 
     const presentation_path = req.files && req.files['presentation_file'] ? req.files['presentation_file'][0].path : null;
     const video_path = req.files && req.files['video_file'] ? req.files['video_file'][0].path : null;
     const role = reg_role || 'participant';
@@ -340,7 +340,6 @@ app.post('/api/register', verifyToken, upload.fields([
             connection.query("SELECT id FROM users WHERE email = ?", [user_email], (err, users) => {
                 if (err || users.length === 0) { return connection.rollback(() => { connection.release(); res.status(404).json({ message: 'User not found' }); }); }
                 
-                // NEW: Added proof_of_payment_path to SQL
                 const sqlReg = "INSERT INTO registrations (user_id, event_id, status, valid_id_path, proof_of_payment_path, reg_role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number, created_at) VALUES (?, ?, 'For approval', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                 
                 connection.query(sqlReg, [users[0].id, event_id, valid_id_path, proof_of_payment_path, role, presentation_path, video_path, first_name, last_name, middle_name, gender, age, contact_number], (err, result) => {
@@ -363,7 +362,6 @@ app.post('/api/register', verifyToken, upload.fields([
     });
 });
 
-// --- NEW: Handle Presenter Step 3 (Payment) and Step 4 (Files) Uploads ---
 app.post('/api/register/complete', verifyToken, upload.fields([
     { name: 'proof_of_payment', maxCount: 1 },
     { name: 'presentation_file', maxCount: 1 },
@@ -419,17 +417,17 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
         if(err) return res.status(500).json({ success: false, error: err.message });
         const insertId = result.insertId;
 
-        // --- NEW OJS INTEGRATION BRIDGE WITH FIREWALL DISGUISE ---
+        // --- UPDATED OJS INTEGRATION BRIDGE ---
         try {
             console.log("Starting OJS Integration Sync...");
 
             // Step 1: Push Metadata to create the official submission in OJS
-    const metadataPayload = {
-        locale: "en", // Changed from en_US
-        title: { en: title || "Untitled Research Paper" }, // Changed from en_US
-        abstract: { en: abstract || "Abstract synced from Conexus Dashboard." }, // Changed from en_US
-        sectionId: 1 
-};
+            const metadataPayload = {
+                locale: "en",
+                title: { en: title || "Untitled Research Paper" }, 
+                abstract: { en: abstract || "Abstract synced from Conexus Dashboard." }, 
+                sectionId: 1 
+            };
 
             const submissionRes = await axios.post(
                 `${OJS_CONFIG.apiUrl}/submissions`,
@@ -438,7 +436,6 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
                     headers: {
                         'Authorization': `Bearer ${OJS_CONFIG.apiKey}`,
                         'Content-Type': 'application/json',
-                        // --- THE DISGUISE ---
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Accept': 'application/json, text/plain, */*'
                     }
@@ -448,12 +445,11 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
             const ojsSubmissionId = submissionRes.data.id;
             console.log(`✅ Success! Created OJS Submission ID: ${ojsSubmissionId}`);
 
-            // Step 2: Push the PDF file (Requires multer file path)
+            // Step 2: Push the PDF file to Temporary Storage
             if (file) {
                 const form = new FormData();
                 form.append('file', fs.createReadStream(file.path));
 
-                // Send the physical file to the OJS temporary files endpoint
                 const tempFileRes = await axios.post(
                     `${OJS_CONFIG.apiUrl}/temporaryFiles`,
                     form,
@@ -461,16 +457,51 @@ app.post('/api/submissions', verifyToken, upload.single('file'), (req, res) => {
                         headers: {
                             ...form.getHeaders(),
                             'Authorization': `Bearer ${OJS_CONFIG.apiKey}`,
-                            // --- THE DISGUISE ---
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                         }
                     }
                 );
-                console.log(`✅ Success! Uploaded PDF to OJS Temp File ID: ${tempFileRes.data.id}`);
+                
+                const temporaryFileId = tempFileRes.data.id;
+                console.log(`✅ Success! Uploaded PDF to OJS Temp File ID: ${temporaryFileId}`);
+
+                // --- NEW: Step 3 - Link the Temp File to the Submission ---
+                console.log("🔗 Linking file to submission...");
+                await axios.post(
+                    `${OJS_CONFIG.apiUrl}/submissions/${ojsSubmissionId}/files`,
+                    {
+                        fileStage: 2, // 2 = Submission Stage
+                        genreId: 1,   // 1 = Article Text (Default OJS genre)
+                        temporaryFileId: temporaryFileId
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${OJS_CONFIG.apiKey}`,
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        }
+                    }
+                );
+                console.log("✅ Success! File attached to submission.");
+
+                // --- NEW: Step 4 - Mark submission as Complete (Remove 'Incomplete' status) ---
+                console.log("🏁 Finalizing submission...");
+                await axios.put(
+                    `${OJS_CONFIG.apiUrl}/submissions/${ojsSubmissionId}`,
+                    { submissionProgress: 0 }, // 0 tells OJS the wizard is complete
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${OJS_CONFIG.apiKey}`,
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        }
+                    }
+                );
+                console.log("✅ Success! Submission finalized.");
             }
 
             // Return success for both systems
-            return res.json({ success: true, id: insertId, ojsId: ojsSubmissionId, message: 'Saved to Conexus and synced with OJS.' });
+            return res.json({ success: true, id: insertId, ojsId: ojsSubmissionId, message: 'Saved to Conexus and fully synced with OJS.' });
 
         } catch (ojsError) {
             // We catch the error so if OJS times out, it doesn't crash your Conexus server!
@@ -605,9 +636,6 @@ app.put('/api/registrations/:id', verifyToken, verifyAdmin, (req, res) => {
     });
 });
 
-// ... existing code for app.put('/api/registrations/:id', ...)
-
-// ADD THE NEW CODE RIGHT HERE:
 app.put('/api/registrations/:id/steps', verifyToken, verifyAdmin, (req, res) => {
     const regId = req.params.id;
     const { status, paper_status, payment_status, files_status } = req.body;
@@ -713,7 +741,6 @@ app.put('/api/registrations/:id/mark-certificate', verifyToken, verifyAdmin, (re
         WHERE r.id = ?
     `;
 
-    // ADDED 'async' HERE to allow await axios inside
     db.query(fetchSql, [regId], async (err, results) => {
         if (err || results.length === 0) {
             return res.status(500).json({ success: false, message: "Could not find registration details." });
