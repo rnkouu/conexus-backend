@@ -89,8 +89,14 @@
   function RegistrationDetailsModal({ reg, event, rooms = [], dorms = [], onClose }) {
     if (!reg) return null;
     
-    const fileUrl = reg.validId ? `https://conexus-backend-production.up.railway.app/${reg.validId.replace(/\\/g, '/').replace(/^\/+/, '')}` : null;
-    const paymentUrl = reg.proofOfPaymentPath ? `https://conexus-backend-production.up.railway.app/${reg.proofOfPaymentPath.replace(/\\/g, '/').replace(/^\/+/, '')}` : null;
+    // URL Cleanup helper
+    const cleanUrl = (path) => {
+        if (!path) return null;
+        return `https://conexus-backend-production.up.railway.app/${path.replace(/\\/g, '/').replace(/^\/+/, '')}`;
+    };
+
+    const fileUrl = cleanUrl(reg.validId || reg.valid_id_path);
+    const paymentUrl = cleanUrl(reg.proofOfPaymentPath || reg.proof_of_payment_path);
     const companions = Array.isArray(reg.companions) ? reg.companions : [];
 
     let assignedRoomName = "";
@@ -137,13 +143,8 @@
                     )}
                  </div>
                  <div className="text-right shrink-0">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
-                    <span className={classNames("badge-academic", 
-                        reg.status === "Approved" ? "bg-emerald-100 text-emerald-700" : 
-                        reg.status === "Rejected" ? "bg-red-100 text-red-700" : 
-                        reg.status === "Step 1 Approved" ? "bg-blue-100 text-blue-700" :
-                        "bg-amber-100 text-amber-700"
-                    )}>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Database Status</p>
+                    <span className="badge-academic bg-gray-100 text-gray-600 border border-gray-200">
                         {reg.status || "Pending"}
                     </span>
                  </div>
@@ -289,7 +290,6 @@
           fetch(`${API_BASE}/registrations`, { headers: getAuthHeaders() })
             .then(r => r.ok ? r.json() : [])
             .then(data => {
-                // The backend automatically filters by the user's token.
                 if(Array.isArray(data)) {
                     setLiveRegs(data);
                 }
@@ -300,27 +300,26 @@
       fetchLiveRegs();
       const interval = setInterval(fetchLiveRegs, 3000); 
       return () => clearInterval(interval);
-    }, []); // Empty dependency array ensures it runs consistently
+    }, []); 
 
     useEffect(() => { if (Array.isArray(submissionsProp)) setSubmissions(submissionsProp.map(normalizeSubmission)); }, [submissionsProp]);
     useEffect(() => { let id; if (selectedEvent) { setModalVisible(false); id = setTimeout(() => setModalVisible(true), 10); } else { setModalVisible(false); } return () => id && clearTimeout(id); }, [selectedEvent]);
     useEffect(() => { if (tab !== "upcoming") return; setAnimateUpcoming(false); setTimeout(() => setAnimateUpcoming(true), 10); }, [tab, events?.length]);
 
     const upcomingEvents = Array.isArray(events) ? events.filter((e) => !e.past) : [];
+    const baseEvents = Array.isArray(registrations) ? registrations : [];
     
-    // --- FIX: COMBINE PROP REGISTRATIONS WITH LIVE DATA ---
+    // --- LIVE MERGE FOR SYNCING ---
     const allRegsMap = new Map();
-    (Array.isArray(registrations) ? registrations : []).forEach(reg => {
+    baseEvents.forEach(reg => {
         if(reg && reg.id) allRegsMap.set(String(reg.id), reg);
     });
-    // Live data takes precedence and overwrites any stale prop data
     liveRegs.forEach(reg => {
         if(reg && reg.id) allRegsMap.set(String(reg.id), reg);
     });
     
     const combinedRegs = Array.from(allRegsMap.values());
     
-    // Calculate final myEvents directly from the combined map
     const myEvents = combinedRegs.map(liveMatch => {
         const evt = (events || []).find(e => String(e.id) === String(liveMatch.eventId || liveMatch.event_id));
         return {
@@ -345,8 +344,7 @@
         String(e.regRole).toLowerCase() === 'presenter'
     );
 
-    const mySubmissions = submissions.filter((s) => String(s.userEmail || "").toLowerCase() === String(user?.email || "").toLowerCase());
-    const visibleSubmissions = statusFilter === "all" ? mySubmissions : mySubmissions.filter((s) => (s.status || "under_review") === statusFilter);
+    const visibleSubmissions = statusFilter === "all" ? submissions : submissions.filter((s) => (s.status || "under_review") === statusFilter);
 
     const filteredUpcoming = () => {
       let list = upcomingEvents;
@@ -382,23 +380,16 @@
     const decrementParticipants = () => { if (participantsCount > 1) { setParticipantsCount(prev => prev - 1); setCompanions(prev => prev.slice(0, -1)); } };
     const handleCompanionChange = (index, field, value) => { const updated = [...companions]; updated[index] = { ...updated[index], [field]: value }; setCompanions(updated); };
 
-    // --- STEP LOGIC ---
-    const handleStep1Submit = () => {
-        if (!selectedFile) return window.Swal.fire('ID Required', 'Please upload your ID first.', 'warning');
-        setCurrentRegStep(2);
-    };
-
+    // --- SUBMIT INITIAL REGISTRATION (STEP 1 FOR EVERYONE) ---
     const handleFinalRegistration = async () => {
+      if (!selectedFile) return window.Swal.fire('ID Required', 'Please upload your ID first.', 'warning');
+      
       setSaving(true);
       try {
           const payload = new FormData();
           payload.append('user_email', formData.email);
           payload.append('event_id', selectedEvent.id);
           payload.append('valid_id', selectedFile);
-          
-          if (regRole === 'participant' && paymentFile) {
-              payload.append('proof_of_payment', paymentFile); 
-          }
           
           payload.append('companions', JSON.stringify(companions)); 
           payload.append('reg_role', regRole);
@@ -422,8 +413,8 @@
           
           if (data.success || response.ok) {
               window.Swal.fire({ 
-                  title: regRole === 'presenter' ? 'Step 1 Submitted!' : 'Registration Submitted!', 
-                  text: regRole === 'presenter' ? 'Your details have been sent to the Admin. Please wait for approval before you can proceed to Step 2.' : 'Your credentials and payment have been sent to the Admin for verification.', 
+                  title: 'Step 1 Submitted!', 
+                  text: 'Your details have been sent to the Admin. Please wait for approval before you can proceed to the next step.', 
                   icon: 'success', 
                   confirmButtonColor: '#1e5aa8' 
               });
@@ -465,7 +456,7 @@
 
             window.Swal.fire({ 
                 title: 'Files Uploaded!', 
-                text: step === 3 ? 'Your Payment has been submitted. Please wait for Admin approval to proceed to Step 4.' : 'Your Final Presentation Files have been submitted successfully. Waiting for final approval.', 
+                text: step === 3 ? 'Your Payment has been submitted. Please wait for Admin approval to proceed.' : 'Your Final Presentation Files have been submitted successfully. Waiting for final approval.', 
                 icon: 'success', 
                 confirmButtonColor: '#1e5aa8' 
             });
@@ -563,13 +554,10 @@
         printWindow.document.close();
     };
 
-    const stepperSteps = regRole === 'participant' 
-        ? [ { step: 1, label: 'Details' }, { step: 2, label: 'Payment' } ]
-        : [ { step: 1, label: 'Details' }, { step: 2, label: 'Paper' }, { step: 3, label: 'Payment' }, { step: 4, label: 'Files' } ];
+    const stepperSteps = [ { step: 1, label: 'Details' }, { step: 2, label: 'Payment (Later)' } ];
 
     return (
       <section className="relative px-4 py-10 max-w-7xl mx-auto animate-fade-in-up">
-        {/* Institutional Hero Banner */}
         <div className="relative overflow-hidden u-hero rounded-[2.5rem] p-8 md:p-12 mb-10 shadow-2xl">
           <div className="absolute inset-0 u-hero-grid" />
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
@@ -593,7 +581,6 @@
           </div>
         </div>
 
-        {/* Tabs / Filters Container */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div className="inline-flex items-center p-1.5 bg-white u-tabs-wrap rounded-2xl shadow-sm overflow-x-auto max-w-full">
             {["upcoming", "my", "submit", "business_card"].map((t) => (
@@ -624,7 +611,6 @@
           )}
         </div>
 
-        {/* Tab Content */}
         <div className="min-h-[400px]">
           {tab === "upcoming" && (
             <div className="grid gap-6">
@@ -677,30 +663,31 @@
                 </div>
               ) : (
                 myEvents.map((reg, idx) => {
-                  const status = reg.status || "Pending";
+                  const status = String(reg.status || "Pending").trim();
                   const isApproved = status === "Approved";
                   const isRejected = status === "Rejected";
                   const isStep1Approved = status === "Step 1 Approved" || isApproved;
+                  
                   const isPresenter = String(reg.regRole).toLowerCase() === 'presenter';
+                  const isAUP = String(reg.university || '').toLowerCase().includes("aup");
                   
                   const paperForThisEvent = submissions.find(s => String(s.eventId) === String(reg.eventId || reg.event_id) && String(s.userEmail).toLowerCase() === String(user?.email).toLowerCase());
                   const isPaperAccepted = paperForThisEvent?.status === 'accepted';
                   
-                  const isAUP = String(reg.university || '').toLowerCase().includes("aup");
                   const hasPayment = !!(reg.proofOfPaymentPath);
                   const isPaymentApproved = reg.paymentStatus === 'Approved';
                   const hasPresentation = !!(reg.presentationPath);
 
-                  // --- FIX: DYNAMIC STATUS BADGE ---
+                  // --- DYNAMIC STATUS BADGE ---
                   let displayStatus = status;
                   let badgeColorClass = "bg-gray-100 text-gray-600 border-gray-200"; 
                   let icon = "⏳";
                   
-                  if (status === "Rejected") {
+                  if (isRejected) {
                       displayStatus = "Rejected";
                       badgeColorClass = "bg-red-50 text-red-600 border-red-200";
                       icon = "❌";
-                  } else if (status === "Approved") {
+                  } else if (isApproved) {
                       displayStatus = "Approved";
                       badgeColorClass = "bg-emerald-50 text-emerald-600 border-emerald-200";
                       icon = "✅";
@@ -726,6 +713,7 @@
                               badgeColorClass = "bg-blue-50 text-blue-600 border-blue-200";
                           }
                       } else {
+                          // Participant Role
                           if (isPaymentApproved || isAUP) {
                               displayStatus = "Payment Verified";
                               badgeColorClass = "bg-blue-50 text-blue-600 border-blue-200";
@@ -738,14 +726,14 @@
                           }
                       }
                   } else {
-                      displayStatus = status; // "For approval"
+                      displayStatus = status; // e.g., "For approval"
                       badgeColorClass = "bg-amber-50 text-amber-600 border-amber-200";
                   }
 
-                  // --- NEW STRICT PHASE LOGIC FOR INSTRUCTION BOX ---
+                  // --- STRICT PHASE LOGIC FOR INSTRUCTION BOX ---
                   let phaseUI = null;
                   if (isPresenter) {
-                      if (!isStep1Approved && status !== 'Rejected') {
+                      if (!isStep1Approved && !isRejected) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
                                   <span className="text-xl">⏳</span>
@@ -755,7 +743,7 @@
                                   </div>
                               </div>
                           );
-                      } else if (isStep1Approved && !paperForThisEvent) {
+                      } else if (isStep1Approved && !paperForThisEvent && !isRejected) {
                            phaseUI = (
                               <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
                                   <span className="text-xl">📝</span>
@@ -766,7 +754,7 @@
                                   </div>
                               </div>
                            );
-                      } else if (paperForThisEvent && !isPaperAccepted) {
+                      } else if (paperForThisEvent && !isPaperAccepted && !isRejected) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
                                   <span className="text-xl">⏳</span>
@@ -776,7 +764,7 @@
                                   </div>
                               </div>
                           );
-                      } else if (isPaperAccepted && !hasPayment && !isAUP) {
+                      } else if (isPaperAccepted && !hasPayment && !isAUP && !isRejected) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
                                   <span className="text-xl">💳</span>
@@ -787,7 +775,7 @@
                                   </div>
                               </div>
                           );
-                      } else if (isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP) {
+                      } else if (isPaperAccepted && hasPayment && !isPaymentApproved && !isAUP && !isRejected) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
                                   <span className="text-xl">⏳</span>
@@ -797,7 +785,7 @@
                                   </div>
                               </div>
                           );
-                      } else if (isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation) {
+                      } else if (isPaperAccepted && (isPaymentApproved || isAUP) && !hasPresentation && !isRejected) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">
                                   <span className="text-xl">📁</span>
@@ -808,7 +796,7 @@
                                   </div>
                               </div>
                           );
-                      } else if (hasPresentation && status !== "Approved") {
+                      } else if (hasPresentation && !isApproved && !isRejected) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
                                   <span className="text-xl">⏳</span>
@@ -818,7 +806,7 @@
                                   </div>
                               </div>
                           );
-                      } else if (hasPresentation && status === "Approved") {
+                      } else if (hasPresentation && isApproved) {
                           phaseUI = (
                               <div className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
                                   <span className="text-xl">✅</span>
@@ -829,7 +817,7 @@
                               </div>
                           );
                       }
-                 } else {
+                  } else {
                       // PARTICIPANT (Non-Presenter) LOGIC - 2 Steps Only
                       if (!isStep1Approved && !isRejected) {
                           phaseUI = (
@@ -880,7 +868,7 @@
                       <div className="flex justify-between items-start mb-6">
                         <div className={classNames(
                             "h-14 w-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner",
-                            status === "Rejected" ? "bg-red-50" : 
+                            isRejected ? "bg-red-50" : 
                             isApproved ? "bg-emerald-50" : 
                             "bg-[var(--u-sky)]"
                         )}>
@@ -1126,11 +1114,13 @@
                           <button type="button" onClick={() => setRegRole('presenter')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${regRole === 'presenter' ? 'bg-brand shadow text-white' : 'text-gray-500 hover:text-gray-700'}`}>Event Presenter</button>
                         </div>
 
-                        {regRole === 'presenter' && (
-                            <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg mb-2">
-                                <p className="text-xs text-blue-800 leading-relaxed font-bold">Presenter Flow: Submit Step 1 details below. Once Admin approves, you will be able to submit your paper in Step 2.</p>
-                            </div>
-                        )}
+                        <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg mb-2">
+                            <p className="text-xs text-blue-800 leading-relaxed font-bold">
+                                {regRole === 'presenter' 
+                                  ? 'Presenter Flow: Submit Step 1 details below. Once Admin approves, you will be able to submit your paper in Step 2.' 
+                                  : 'Participant Flow: Submit Step 1 details below. Once Admin approves, you will be able to upload your payment in Step 2.'}
+                            </p>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4">
                           <div className="col-span-2 sm:col-span-1"><label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Last Name *</label><input className="u-input-academic" value={formData.lastName} onChange={e => setFormData(p=>({...p, lastName: e.target.value}))} required /></div>
@@ -1166,12 +1156,9 @@
                           </div>
                           <div className="flex gap-2">
                               <button type="button" onClick={() => setSelectedEvent(null)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
-                              
-                              {regRole === 'participant' ? (
-                                  <button type="button" onClick={handleStep1Submit} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">Next Step (Payment)</button>
-                              ) : (
-                                  <button type="button" onClick={handleFinalRegistration} disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Processing...' : 'Submit Step 1'}</button>
-                              )}
+                              <button type="button" onClick={handleFinalRegistration} disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">
+                                  {saving ? 'Processing...' : 'Submit Step 1'}
+                              </button>
                           </div>
                         </div>
 
@@ -1193,40 +1180,6 @@
                         )}
                       </div>
                     )}
-
-                    {/* --- STEP 2: Payment Details (Participant ONLY) --- */}
-                    {currentRegStep === 2 && regRole === 'participant' && (
-                      <div className="animate-fade-in-up space-y-4">
-                        {isAUP ? (
-                          <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 text-center mb-4">
-                            <div className="text-3xl mb-2">🎓</div>
-                            <p className="text-sm text-blue-800 font-bold">AUP Faculty Account Detected</p>
-                            <p className="text-xs text-blue-600 mt-2 leading-relaxed">Registration fees are waived for AUP Faculty. We will verify your Faculty ID uploaded in Step 1.</p>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl mt-2">
-                                <p className="text-[11px] font-black text-brand uppercase tracking-widest mb-2 flex items-center gap-2"><span>💳</span> Payment Account Details</p>
-                                <div className="text-xs text-gray-600 space-y-1.5">
-                                    <p><span className="font-bold text-gray-800">Bank Name:</span> BPI (Bank of the Philippine Islands)</p>
-                                    <p><span className="font-bold text-gray-800">Account Name:</span> Adventist University of the Philippines</p>
-                                    <p><span className="font-bold text-gray-800">Account Number:</span> <span className="font-mono bg-white px-2 py-0.5 rounded border border-gray-200 select-all text-brand font-bold">8921003316</span></p>
-                                </div>
-                                <p className="text-[9px] text-gray-400 mt-3 italic leading-relaxed">Please settle your registration fee via bank transfer before proceeding.</p>
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Proof of Payment *</label>
-                                <input type="file" accept="image/*,application/pdf" className="u-input-academic bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer text-xs" onChange={(e) => setPaymentFile(e.target.files[0])} required={!isAUP} />
-                            </div>
-                          </>
-                        )}
-                        
-                        <div className="flex items-center justify-end pt-6 border-t border-gray-100 gap-2">
-                            <button type="button" onClick={() => setCurrentRegStep(1)} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Back</button>
-                            <button type="button" onClick={handleFinalRegistration} disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Processing...' : 'Complete Registration'}</button>
-                        </div>
-                      </div>
-                    )}
                  </form>
               </div>
             </div>
@@ -1240,8 +1193,8 @@
               <div className="rounded-[2.5rem] overflow-hidden u-card bg-white">
                 <div className="px-8 py-6 bg-[var(--u-navy)] text-white relative">
                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-[var(--u-gold)]" />
-                   <h3 className="text-xl font-extrabold">Complete Presenter Registration</h3>
-                   <p className="text-xs text-white/75 mt-1">Finalizing your registration files.</p>
+                   <h3 className="text-xl font-extrabold">Complete Registration</h3>
+                   <p className="text-xs text-white/75 mt-1">Finalizing your event requirements.</p>
                 </div>
 
                 {/* --- COMPLETED STEPS TRACKER --- */}
@@ -1249,19 +1202,18 @@
                     <div className="relative flex justify-between items-center max-w-sm mx-auto">
                        <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 -translate-y-1/2 z-0 rounded-full"></div>
                        <div className="absolute top-1/2 left-0 h-1 bg-[var(--u-blue)] -translate-y-1/2 z-0 transition-all duration-500 rounded-full" 
-                            style={{ width: completingStep === 3 ? '66%' : '100%' }}></div>
+                            style={{ width: completingStep === 3 ? (String(completingReg.regRole).toLowerCase() === 'presenter' ? '66%' : '100%') : '100%' }}></div>
                        
-                       {[
-                         { step: 1, label: 'Details' },
-                         { step: 2, label: 'Paper' },
-                         { step: 3, label: 'Payment' },
-                         { step: 4, label: 'Files' }
-                       ].map(s => (
-                          <div key={s.step} className="relative z-10 flex flex-col items-center bg-white px-2">
-                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all duration-300 ${completingStep === s.step ? 'bg-[var(--u-blue)] text-white border-[var(--u-blue)] shadow-md scale-110' : s.step < completingStep ? 'bg-[var(--u-navy)] text-white border-[var(--u-navy)]' : 'bg-white text-gray-300 border-gray-100'}`}>
-                                {s.step < completingStep ? '✓' : s.step}
+                       {/* Calculate steps dynamically based on role */}
+                       {(String(completingReg.regRole).toLowerCase() === 'presenter' 
+                         ? [ { s: 1, l: 'Details' }, { s: 2, l: 'Paper' }, { s: 3, l: 'Payment' }, { s: 4, l: 'Files' } ]
+                         : [ { s: 1, l: 'Details' }, { s: 3, l: 'Payment', displayNum: 2 } ]
+                       ).map(s => (
+                          <div key={s.s} className="relative z-10 flex flex-col items-center bg-white px-2">
+                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all duration-300 ${completingStep === s.s ? 'bg-[var(--u-blue)] text-white border-[var(--u-blue)] shadow-md scale-110' : s.s < completingStep ? 'bg-[var(--u-navy)] text-white border-[var(--u-navy)]' : 'bg-white text-gray-300 border-gray-100'}`}>
+                                {s.s < completingStep ? '✓' : (s.displayNum || s.s)}
                              </div>
-                             <span className={`absolute top-10 text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${s.step <= completingStep ? 'text-[var(--u-navy)]' : 'text-gray-400'}`}>{s.label}</span>
+                             <span className={`absolute top-10 text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${s.s <= completingStep ? 'text-[var(--u-navy)]' : 'text-gray-400'}`}>{s.l}</span>
                           </div>
                        ))}
                     </div>
@@ -1269,7 +1221,7 @@
 
                 <form onSubmit={(e) => handleCompletePresenterRegistration(e, completingStep)} className="p-8 space-y-5">
                     
-                    {/* --- PRESENTER STEP 3 PAGE --- */}
+                    {/* --- STEP 3 PAGE (Payment) --- */}
                     {completingStep === 3 && (
                         <div className="animate-fade-in-up space-y-4">
                             <div className="bg-[#f8fafc] border border-gray-200 p-4 rounded-xl">
@@ -1287,7 +1239,7 @@
 
                             <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => {setCompletingReg(null); setCompletingStep(3);}} className="px-5 py-2 text-xs font-extrabold text-gray-500 hover:text-gray-700">Cancel</button>
-                                <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Uploading...' : 'Submit Step 3 (Payment)'}</button>
+                                <button type="submit" disabled={saving} className="grad-btn px-6 py-2.5 rounded-xl text-white text-xs font-extrabold u-sweep relative overflow-hidden">{saving ? 'Uploading...' : 'Submit Payment'}</button>
                             </div>
                         </div>
                     )}
@@ -1305,11 +1257,11 @@
                                         <input type="file" accept=".pdf,.ppt,.pptx" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-amber-50 file:text-amber-700 cursor-pointer" onChange={(e) => setPresentationFile(e.target.files[0])} required />
                                     </div>
 
-                                    {/* ONLY REQUIRED IF EVENT MODE IS "ONLINE" */}
+                                    {/* ONLY REQUIRED IF EVENT MODE IS VIRTUAL OR HYBRID */}
                                     {(String(completingReg.mode || '').toLowerCase() === 'virtual' || String(completingReg.mode || '').toLowerCase() === 'hybrid') && (
                                       <div className="animate-fade-in-up">
                                           <label className="text-[10px] font-black text-rose-500 uppercase mb-1 block flex items-center gap-1">
-                                              <span>📹</span> Sample Video (.mp4) * <span className="text-gray-400 font-normal normal-case ml-1">(Required for Online Events)</span>
+                                              <span>📹</span> Sample Video (.mp4) * <span className="text-gray-400 font-normal normal-case ml-1">(Required for Virtual & Hybrid Events)</span>
                                           </label>
                                           <input type="file" accept="video/mp4,video/webm,video/quicktime" className="u-input-academic text-xs bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-rose-50 file:text-rose-700 cursor-pointer border-rose-200" onChange={(e) => setVideoFile(e.target.files[0])} required />
                                       </div>

@@ -1371,7 +1371,7 @@
                         )}
                       </td>
 
-                      {/* 5. Actions (MODERN PROFESSIONAL UI) */}
+                     {/* 5. Actions (MODERN PROFESSIONAL UI) */}
                       <td className="px-6 py-4 align-middle text-right">
                           <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                               <button 
