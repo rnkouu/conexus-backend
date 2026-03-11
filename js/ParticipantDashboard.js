@@ -359,16 +359,43 @@
       setCurrentRegStep(1); 
       setParticipantsCount(1);
       setCompanions([]); 
+
+      // --- SMART NAME PARSING ---
+      let fName = "";
+      let mName = "";
+      let lName = "";
+      
+      if (user?.name) {
+          const parts = user.name.trim().split(/\s+/);
+          if (parts.length === 1) {
+              fName = parts[0];
+          } else if (parts.length === 2) {
+              fName = parts[0];
+              lName = parts[1];
+          } else {
+              lName = parts.pop(); // The last word is usually the last name
+              
+              const possibleMiddle = parts[parts.length - 1];
+              // Check if the word before the last name is an initial (e.g. "H" or "H.")
+              if (possibleMiddle.length === 1 || (possibleMiddle.length === 2 && possibleMiddle.endsWith('.'))) {
+                  mName = parts.pop(); // It's an initial, set it as middle name
+              }
+              
+              fName = parts.join(' '); // Everything else is the first name
+          }
+      }
+
       setFormData({
-        firstName: user?.name ? user.name.split(' ')[0] : "",
-        lastName: user?.name ? user.name.split(' ').slice(1).join(' ') : "",
-        middleName: "",
+        firstName: fName,
+        lastName: lName,
+        middleName: mName,
         gender: "",
         age: "",
         email: user?.email || "",
         university: user?.university || "",
         contact: user?.phone || ""
       });
+      
       setSelectedFile(null);
       setPaymentFile(null); 
       setRegRole('participant');
