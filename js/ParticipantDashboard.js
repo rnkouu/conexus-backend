@@ -434,6 +434,19 @@
 
     const handleCompletePresenterRegistration = async (e, step) => {
         e.preventDefault();
+        
+        // STRICT VALIDATION FOR STEP 4
+        if (step === 4) {
+            if (!presentationFile) {
+                return window.Swal.fire('Missing File', 'Please upload your presentation deck (.pdf or .ppt).', 'warning');
+            }
+            
+            const mode = String(completingReg.mode || '').toLowerCase();
+            if ((mode === 'virtual' || mode === 'hybrid') && !videoFile) {
+                return window.Swal.fire('Video Required', `Because this is a ${completingReg.mode} event, you must upload a video presentation.`, 'warning');
+            }
+        }
+
         setSaving(true);
         try {
             const payload = new FormData();
