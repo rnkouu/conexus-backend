@@ -389,7 +389,7 @@
         firstName: fName,
         lastName: lName,
         middleName: mName,
-        gender: "",
+        gender: user?.gender,
         age: "",
         email: user?.email || "",
         university: user?.university || "",

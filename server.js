@@ -124,18 +124,18 @@ const verifyAdmin = (req, res, next) => {
 // ==========================================
 
 app.post('/api/register_user', (req, res) => {
-    const { name, email, password, university } = req.body;
+    // Added 'gender' to the destructured body
+    const { name, email, password, university, gender } = req.body;
     
-    // Create a slug from the name (e.g., "John Doe" -> "john-doe-12345")
     const slug = name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.floor(1000 + Math.random() * 9000);
 
     db.query("SELECT id FROM users WHERE email = ?", [email], (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         if (results.length > 0) return res.json({ success: false, message: 'Email taken' });
 
-        // Added profile_slug to the columns and values
-        db.query("INSERT INTO users (full_name, email, password, university_org, role, profile_slug) VALUES (?, ?, ?, ?, 'participant', ?)", 
-        [name, email, password, university, slug], (err, result) => {
+        // Updated INSERT query to include the gender column
+        db.query("INSERT INTO users (full_name, email, password, university_org, role, profile_slug, gender) VALUES (?, ?, ?, ?, 'participant', ?, ?)", 
+        [name, email, password, university, slug, gender], (err, result) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true, userId: result.insertId });
         });
@@ -160,7 +160,7 @@ app.post('/api/login', (req, res) => {
                     success: true, 
                     token: token, // Send token to client
                     user: { 
-                        id: user.id, name: user.full_name, email: user.email, role: user.role, 
+                        id: user.id, name: user.full_name, email: user.email, role: user.role, gender: user.gender, 
                         university: user.university_org, job_title: user.job_title,
                         designation: user.designation, phone: user.phone, 
                         university_org: user.university_org, bio: user.bio,

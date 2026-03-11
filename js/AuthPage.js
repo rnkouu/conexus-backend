@@ -16,11 +16,9 @@
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     
-    // <-- ADDED: State to manage password visibility
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
-    // Updated state to include confirmPassword
     const [formData, setFormData] = useState({
       firstName: "",
       middleInitial: "",
@@ -29,6 +27,7 @@
       password: "",
       confirmPassword: "", 
       university: "",
+      gender: "", // <-- ADDED: State for gender
     });
 
     const handleChange = (e) => {
@@ -51,8 +50,8 @@
             window.Swal.fire({ title: 'Login Failed', text: res.message || "Invalid credentials", icon: 'error', confirmButtonColor: '#1e5aa8' });
         }
       } else {
-        if (!formData.firstName || !formData.lastName) {
-          window.Swal.fire({ title: 'Missing Fields', text: 'First Name and Last Name are required', icon: 'warning', confirmButtonColor: '#1e5aa8' });
+        if (!formData.firstName || !formData.lastName || !formData.gender) {
+          window.Swal.fire({ title: 'Missing Fields', text: 'First Name, Last Name, and Gender are required', icon: 'warning', confirmButtonColor: '#1e5aa8' });
           setLoading(false);
           return;
         }
@@ -70,7 +69,8 @@
             name: fullName,
             email: formData.email,
             password: formData.password,
-            university: formData.university
+            university: formData.university,
+            gender: formData.gender // <-- ADDED: Sending gender to backend
         });
       }
       setLoading(false);
@@ -135,7 +135,6 @@
           <form onSubmit={handleSubmit} className="space-y-3 text-sm">
             {!isLogin && (
               <>
-                {/* Row 1: First Name & Middle Initial */}
                 <div className="flex gap-3">
                     <div className="flex-1">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -166,7 +165,6 @@
                     </div>
                 </div>
 
-                {/* Row 2: Last Name */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Last Name
@@ -179,6 +177,22 @@
                     value={formData.lastName}
                     onChange={handleChange}
                   />
+                </div>
+
+                {/* --- ADDED GENDER FIELD --- */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Gender</label>
+                  <select
+                    name="gender"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 bg-white"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
                 </div>
 
                 <div>
@@ -211,7 +225,6 @@
               />
             </div>
 
-            {/* <-- UPDATED: Main Password Field with Eye Toggle */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 Password
@@ -239,7 +252,6 @@
               </div>
             </div>
 
-            {/* <-- UPDATED: Confirm Password Field with Eye Toggle */}
             {!isLogin && (
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
